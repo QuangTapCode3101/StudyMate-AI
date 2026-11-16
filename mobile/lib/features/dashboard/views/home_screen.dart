@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/active_context_provider.dart';
 import '../../../core/widgets/mastery_badge.dart';
 import '../../../core/widgets/rate_limit_badge.dart';
 import '../models/dashboard_data_model.dart';
 import '../viewmodels/home_viewmodel.dart';
+import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/section_header.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = TextEditingController(text: currentUrl);
 
     if (!context.mounted) return;
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -52,12 +55,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              vm.isBackendOnline
-                  ? '🟢 Đã kết nối Backend Node.js thành công'
-                  : '🔴 Chưa kết nối được Backend (Đang chạy chế độ Offline SQLite)',
+              vm.isBackendOnline ? '🟢 Đã kết nối Backend Node.js thành công' : '🔴 Chưa kết nối được Backend (Đang chạy chế độ Offline SQLite)',
               style: TextStyle(
                 fontSize: 13,
-                color: vm.isBackendOnline ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+                color: vm.isBackendOnline
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFEF4444),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -67,7 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: InputDecoration(
                 labelText: 'Backend Base URL',
                 hintText: 'http://10.0.2.2:3000',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -91,7 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       await vm.refreshQuotaStatus();
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                    ),
                     child: const Text('Lưu & Kiểm tra'),
                   ),
                 ),
@@ -101,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    controller.dispose();
   }
 
   @override
@@ -136,7 +144,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(height: 4),
                       Text(
                         'Sinh viên năm 3 • CNTT',
-                        style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -184,22 +195,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 24),
 
                 // 4. Danh sách Chủ đề yếu cần ôn lại (< 50%)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Chủ đề yếu cần ôn lại',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => navProvider.setTabIndex(1),
-                      child: const Text('Xem tất cả'),
-                    ),
-                  ],
+                SectionHeader(
+                  title: 'Chủ đề yếu cần ôn lại',
+                  actionText: 'Xem tất cả',
+                  onActionTap: () => navProvider.setTabIndex(1),
                 ),
                 const SizedBox(height: 8),
                 if (data.weakTopics.isEmpty)
@@ -211,7 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: const Text(
                       '🎉 Tuyệt vời! Không có chủ đề nào dưới 50% cần báo động.',
-                      style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Color(0xFF16A34A),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   )
                 else
@@ -233,7 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // 5. Footer: Lịch sử học tập nhanh
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -244,17 +249,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.local_fire_department, color: Colors.deepOrange),
+                          Icon(
+                            Icons.local_fire_department,
+                            color: Colors.deepOrange,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Chuỗi 5 ngày học liên tiếp',
-                            style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
                       Text(
                         'Tổng thẻ: ${data.totalMasteredCards}',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -332,20 +346,16 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 'Tiến độ: $progress%',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              FilledButton.icon(
+              AppButton(
+                label: 'Tiếp tục với AI Tutor',
+                icon: Icons.auto_awesome,
+                variant: AppButtonVariant.white,
                 onPressed: onContinueTap,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF1D4ED8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                ),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-                label: const Text(
-                  'Tiếp tục với AI Tutor',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
               ),
             ],
           ),
@@ -370,7 +380,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.lightbulb_outline, color: Color(0xFFD97706), size: 26),
+            const Icon(
+              Icons.lightbulb_outline,
+              color: Color(0xFFD97706),
+              size: 26,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -433,23 +447,16 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton(
+              AppButton(
+                label: 'Làm Quiz',
+                variant: AppButtonVariant.outline,
                 onPressed: onQuizTap,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0F172A),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                child: const Text('Làm Quiz'),
               ),
               const SizedBox(width: 10),
-              FilledButton(
+              AppButton(
+                label: 'Học AI',
+                variant: AppButtonVariant.primary,
                 onPressed: onAiTap,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                child: const Text('Học AI'),
               ),
             ],
           ),
