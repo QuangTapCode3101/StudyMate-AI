@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:studymate_ai/features/dashboard/viewmodels/home_viewmodel.dart';
+import 'package:studymate_ai/features/dashboard/views/home_screen.dart';
 import 'core/database/database_helper.dart';
 import 'core/providers/active_context_provider.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // khởi tạo dtb
@@ -12,6 +13,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ActiveStudyContextProvider()),
+        ChangeNotifierProvider(create: (_) => HomeViewModel())
       ],
       child: const StudyMateApp(),
     ),
@@ -55,7 +57,7 @@ class MainShellScreen extends StatelessWidget {
 
     // M1, M2, M3, M4 sẽ thay thế 5 Widget giữ chỗ này bằng màn hình thật của mình
     final List<Widget> tabs = [
-      const Center(child: Text('SCR-01: Trang chủ (M1 phụ trách)')),
+      const HomeScreen(),
       const Center(child: Text('SCR-02: Thư viện môn học (M2 phụ trách)')),
       const Center(child: Text('SCR-05: AI Tutor (M3 phụ trách)')),
       const Center(child: Text('SCR-06: Luyện tập Quiz (M4 phụ trách)')),
