@@ -6,6 +6,7 @@ import '../library_style.dart';
 import '../viewmodels/library_viewmodel.dart';
 import '../widgets/add_subject_dialog.dart';
 import '../widgets/subject_card.dart';
+import 'add_document_screen.dart';
 import 'subject_detail_screen.dart';
 
 /// SCR-02: Thư viện môn học. M1 chỉ cần đặt `LibraryScreen()` vào tab thứ 2.
@@ -55,11 +56,15 @@ class _LibraryViewState extends State<_LibraryView> {
     ));
   }
 
-  /// Nút "Tải tài liệu lên" mở SCR-04 (TASK-304, làm ở giai đoạn tích hợp).
-  void _onUploadDocument() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Màn hình thêm học liệu (SCR-04) sẽ có ở TASK-304'),
-    ));
+  /// Nút "Tải tài liệu lên" mở SCR-04; quay lại thì làm mới số liệu.
+  Future<void> _onUploadDocument() async {
+    final viewModel = context.read<LibraryViewModel>();
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const AddDocumentScreen()),
+    );
+    if (added == true && mounted) {
+      await viewModel.loadSubjects(showLoading: false);
+    }
   }
 
   Future<void> _onDeleteSubject(SubjectModel subject) async {

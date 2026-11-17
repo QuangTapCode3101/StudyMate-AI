@@ -8,6 +8,7 @@ import '../models/document_model.dart';
 import '../viewmodels/subject_detail_viewmodel.dart';
 import '../widgets/document_tile.dart';
 import '../widgets/topic_action_card.dart';
+import 'add_document_screen.dart';
 
 /// SCR-03: Chi tiết môn học gồm "Tài liệu nguồn" và "Cây chủ đề kiến thức".
 class SubjectDetailScreen extends StatelessWidget {
@@ -47,11 +48,15 @@ class _SubjectDetailView extends StatelessWidget {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  /// Nút "+ Thêm học liệu" mở SCR-04 (TASK-304, làm ở giai đoạn tích hợp).
-  void _onAddDocument(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Màn hình thêm học liệu (SCR-04) sẽ có ở TASK-304'),
-    ));
+  /// Nút "+ Thêm học liệu" mở SCR-04 với môn học hiện tại; quay lại thì tải lại.
+  Future<void> _onAddDocument(BuildContext context) async {
+    final viewModel = context.read<SubjectDetailViewModel>();
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AddDocumentScreen(subject: subject),
+      ),
+    );
+    if (added == true) await viewModel.load();
   }
 
   @override

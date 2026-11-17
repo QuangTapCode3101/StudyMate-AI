@@ -1,6 +1,8 @@
 import '../../../core/database/database_helper.dart';
 import '../../../core/models/shared_models.dart';
 import '../models/document_model.dart';
+import '../services/pdf_text_extractor_service.dart';
+import 'document_api_service.dart';
 
 /// Các hàm đọc/ghi SQLite cho module Thư viện (M2).
 /// Luôn lấy DB qua DatabaseHelper.instance, không tự openDatabase.
@@ -62,5 +64,60 @@ class LibraryRepository {
       orderBy: 'id ASC',
     );
     return rows.map(TopicModel.fromMap).toList();
+  }
+
+  /// Lưu tài liệu, các chunk và chủ đề trong MỘT transaction: lỗi ở bước nào
+  /// thì cả ba bảng (documents, document_chunks, topics) đều được hoàn tác.
+  /// Trả về id của tài liệu vừa tạo.
+  Future<int> saveDocumentAndTopicsTransaction({
+    required int subjectId,
+    required String title,
+    required String docType, // 'PDF' | 'MARKDOWN' | 'CODE'
+    required List<DocumentChunk> chunks,
+    required List<ExtractedTopic> topics,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+    return db.transaction<int>((txn) async {
+      final now = DateTime.now().toIso8601String();
+
+      final documentId = await txn.insert(
+        'documents',
+        DocumentModel(
+          subjectId: subjectId,
+          title: title.trim(),
+          docType: docType,
+          totalChunks: chunks.length,
+          createdAt: now,
+        ).toMap(),
+      );
+
+      for (final chunk in chunks) {
+        await txn.insert('document_chunks', {
+          'document_id': documentId,
+          ...chunk.toMap(),
+        });
+      }
+
+      // chunk_indices_json của chủ đề phải trùng chunk_index đã lưu ở trên.
+      final savedIndices = <int>{for (final c in chunks) c.chunkIndex};
+      for (final topic in topics) {
+        final name = topic.name.trim();
+        if (name.isEmpty) continue;
+        var indices = topic.chunkIndices.where(savedIndices.contains).toList();
+        if (indices.isEmpty) indices = savedIndices.toList()..sort();
+        await txn.insert(
+          'topics',
+          TopicModel(
+            subjectId: subjectId,
+            documentId: documentId,
+            name: name,
+            keywords: topic.keywords,
+            chunkIndices: indices,
+            updatedAt: now,
+          ).toMap(),
+        );
+      }
+      return documentId;
+    });
   }
 }
