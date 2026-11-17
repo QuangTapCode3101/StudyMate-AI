@@ -24,7 +24,7 @@ class DocumentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, color) = _iconStyle;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),

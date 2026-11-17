@@ -178,7 +178,7 @@ class _DocumentGrid extends StatelessWidget {
 
   const _DocumentGrid({required this.documents});
 
-  static const double _tileHeight = 58;
+  static const double _tileHeight = 64;
   static const double _spacing = 10;
 
   @override
