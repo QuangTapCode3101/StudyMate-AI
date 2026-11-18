@@ -16,5 +16,9 @@ class TutorStyle {
   static const Color successLight = Color(0xFFDCFCE7);
   static const Color danger = Color(0xFFEF4444);
   static const Color dangerLight = Color(0xFFFEE2E2);
+  static const Color warning = Color(0xFFEA580C);
+  static const Color warningLight = Color(0xFFFFF7ED);
+  static const Color warningBorder = Color(0xFFFED7AA);
+  static const Color warningText = Color(0xFF9A3412);
   static const Color inlineCodeBackground = Color(0xFFF1F5F9);
 }

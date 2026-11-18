@@ -15,6 +15,7 @@ class ChatMessageBubble extends StatelessWidget {
     required this.onCitationTap,
     required this.onMiniQuizTap,
     this.onEditTap,
+    this.miniQuizEnabled = true,
   });
 
   final ChatMessageModel message;
@@ -24,6 +25,9 @@ class ChatMessageBubble extends StatelessWidget {
 
   /// Khác null chỉ ở câu hỏi mới nhất của người dùng (cho phép sửa); null thì ẩn nút bút chì.
   final VoidCallback? onEditTap;
+
+  /// Tắt (làm mờ) nút Kiểm tra nhanh khi đang mất kết nối.
+  final bool miniQuizEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +141,7 @@ class ChatMessageBubble extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: onMiniQuizTap,
+                      onPressed: miniQuizEnabled ? onMiniQuizTap : null,
                       icon: const Icon(Icons.help_outline, size: 18),
                       label: const Text('Kiểm tra nhanh 3 câu về phần này'),
                       style: OutlinedButton.styleFrom(

@@ -14,6 +14,7 @@ class ChatInputBar extends StatelessWidget {
     this.focusNode,
     this.isEditing = false,
     this.onCancelEdit,
+    this.hintText,
   });
 
   final TextEditingController controller;
@@ -28,6 +29,9 @@ class ChatInputBar extends StatelessWidget {
   /// Đang sửa câu hỏi đã gửi: hiện dải "Đang sửa câu hỏi" kèm nút Hủy.
   final bool isEditing;
   final VoidCallback? onCancelEdit;
+
+  /// Gợi ý thay thế (ví dụ khi mất kết nối). Null thì dùng gợi ý mặc định.
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -91,9 +95,10 @@ class ChatInputBar extends StatelessWidget {
             textInputAction: TextInputAction.send,
             onSubmitted: (_) => onSend(),
             decoration: InputDecoration(
-              hintText: isEditing
-                  ? 'Sửa câu hỏi của bạn...'
-                  : 'Hỏi AI Tutor của bạn...',
+              hintText: hintText ??
+                  (isEditing
+                      ? 'Sửa câu hỏi của bạn...'
+                      : 'Hỏi AI Tutor của bạn...'),
               hintStyle: const TextStyle(color: TutorStyle.textMuted),
               filled: true,
               fillColor: const Color(0xFFF1F5F9),

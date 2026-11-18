@@ -6,6 +6,8 @@ import '../../../core/network/api_client.dart';
 import '../models/tutor_models.dart';
 import '../repositories/tutor_repository.dart';
 import '../services/citation_mapper.dart';
+import '../services/connection_status.dart';
+import '../services/internet_probe.dart';
 import '../services/sse_event_parser.dart';
 import '../services/sse_stream_client.dart';
 
@@ -18,18 +20,22 @@ class TutorViewModel extends ChangeNotifier {
   TutorViewModel({
     TutorRepository? repository,
     SseStreamClient? sseClient,
+    Future<bool> Function()? internetProbe,
     this.useMock = false,
   })  : _repository = repository ?? TutorRepository(),
-        _sseClient = sseClient ?? SseStreamClient();
+        _sseClient = sseClient ?? SseStreamClient(),
+        _internetProbe = internetProbe ?? hasInternetAccess;
 
   final TutorRepository _repository;
   final SseStreamClient _sseClient;
+  final Future<bool> Function() _internetProbe;
 
   /// Bật để gửi header X-Mock-Mode: true (Backend trả dữ liệu giả, không tốn quota Gemini).
   final bool useMock;
 
   static const int _maxHistoryMessages = 6;
   static const int _maxSessionTitleLength = 40;
+  static const Duration _connectionCheckInterval = Duration(seconds: 15);
 
   // --- Trạng thái hiển thị ---------------------------------------------------
   List<TutorContext> _topics = [];
@@ -47,7 +53,9 @@ class TutorViewModel extends ChangeNotifier {
 
   int _remainingQuota = 20;
   int _maxQuota = 20;
-  bool _isBackendOnline = false;
+  TutorConnectionStatus _connection = TutorConnectionStatus.checking;
+  bool _isCheckingConnection = false;
+  Timer? _connectionTimer;
 
   // --- Trạng thái nội bộ -----------------------------------------------------
   StreamSubscription<TutorStreamEvent>? _subscription;
@@ -72,7 +80,12 @@ class TutorViewModel extends ChangeNotifier {
   bool get canRetry => _canRetry;
   int get remainingQuota => _remainingQuota;
   int get maxQuota => _maxQuota;
-  bool get isBackendOnline => _isBackendOnline;
+  bool get isBackendOnline => _connection == TutorConnectionStatus.online;
+  TutorConnectionStatus get connectionStatus => _connection;
+  bool get isCheckingConnection => _isCheckingConnection;
+
+  /// Mất mạng / Backend không chạy thì khóa mọi thao tác cần gọi AI.
+  bool get isAiAvailable => _connection.isAiAvailable;
 
   /// Chỉ cho bấm nút Dừng khi bong bóng AI đã xuất hiện (luồng đã bắt đầu chạy).
   bool get canStop =>
@@ -123,7 +136,12 @@ class TutorViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-    unawaited(refreshQuota());
+    unawaited(checkConnection());
+    _connectionTimer ??= Timer.periodic(_connectionCheckInterval, (_) {
+      if (!_isStreaming && !_isLoading) {
+        unawaited(checkConnection());
+      }
+    });
   }
 
   /// Tải lại danh sách chủ đề (M2 có thể vừa thêm học liệu mới ở tab Thư viện).
@@ -354,6 +372,10 @@ class TutorViewModel extends ChangeNotifier {
   /// Câu hỏi cũ và câu trả lời cũ của AI (nếu có) bị xóa khỏi lịch sử,
   /// sau đó [text] được gửi đi như một câu hỏi mới.
   Future<void> editLastQuestion(String text) async {
+    // Kiểm tra kết nối trước khi xóa gì, để mất mạng thì không làm mất câu hỏi cũ.
+    if (!await _ensureAiAvailable()) {
+      return;
+    }
     final prompt = text.trim();
     final index = editableMessageIndex;
     final session = _session;
@@ -417,6 +439,12 @@ class TutorViewModel extends ChangeNotifier {
         _topicContext == null) {
       return;
     }
+    if (!await _ensureAiAvailable()) {
+      return;
+    }
+    if (_isStreaming) {
+      return;
+    }
     _errorMessage = null;
     _canRetry = false;
     await _startStream(mode: mode, prompt: prompt, session: session);
@@ -435,6 +463,16 @@ class TutorViewModel extends ChangeNotifier {
   }) async {
     final context = _topicContext;
     if (context == null || _isStreaming) {
+      return;
+    }
+
+    if (!await _ensureAiAvailable()) {
+      _selectedMode = null;
+      notifyListeners();
+      return;
+    }
+    // Trong lúc chờ kiểm tra kết nối có thể đã có thao tác gửi khác.
+    if (_isStreaming || _topicContext == null) {
       return;
     }
 
@@ -648,7 +686,7 @@ class TutorViewModel extends ChangeNotifier {
       if (done.maxDaily != null) {
         _maxQuota = done.maxDaily!;
       }
-      _isBackendOnline = true;
+      _connection = TutorConnectionStatus.online;
       _pendingMode = null;
       _pendingPrompt = null;
     } catch (e) {
@@ -676,13 +714,16 @@ class TutorViewModel extends ChangeNotifier {
       if (error.code == 'DAILY_QUOTA_EXCEEDED') {
         _remainingQuota = 0;
       }
-      if (error.code == 'NETWORK_ERROR' || error.code == 'TIMEOUT') {
-        _isBackendOnline = false;
-      }
     } else {
       _errorMessage = 'Đã xảy ra lỗi khi nhận câu trả lời từ AI.';
     }
     notifyListeners();
+
+    // Lỗi do đường truyền: kiểm tra lại để hiện đúng cảnh báo "mất mạng" / "máy chủ".
+    final interrupted = error is ApiException && error.code == 'STREAM_INTERRUPTED';
+    if (isConnectionFailure(error) || interrupted) {
+      unawaited(checkConnection());
+    }
   }
 
   /// Người dùng bấm Dừng: ngắt luồng SSE và GIỮ LẠI phần chữ AI đã viết.
@@ -767,15 +808,48 @@ class TutorViewModel extends ChangeNotifier {
   // Quota & TASK-403 (Mini-Quiz)
   // ===========================================================================
 
-  Future<void> refreshQuota() async {
+  /// Gọi thử Backend (GET /quota/status, không tốn lượt AI) để biết còn kết nối hay không
+  /// và cập nhật hạn mức. Nếu Backend không phản hồi thì tra Internet để phân biệt
+  /// "máy mất mạng" với "Backend không chạy".
+  Future<void> checkConnection() async {
+    if (_isCheckingConnection || _disposed) {
+      return;
+    }
+    _isCheckingConnection = true;
+    if (!_connection.isAiAvailable) {
+      notifyListeners(); // để nút "Kiểm tra lại" hiện vòng quay
+    }
+
     try {
       final res = await ApiClient.instance.get('/api/v1/quota/status');
       _applyQuota(res['quota']);
-      _isBackendOnline = true;
-    } catch (_) {
-      _isBackendOnline = false;
+      _connection = TutorConnectionStatus.online;
+    } catch (e) {
+      if (isConnectionFailure(e)) {
+        final hasInternet = await _internetProbe();
+        _connection = hasInternet
+            ? TutorConnectionStatus.serverUnreachable
+            : TutorConnectionStatus.noInternet;
+      } else {
+        // Backend trả lỗi HTTP nghĩa là Backend vẫn đang chạy.
+        _connection = TutorConnectionStatus.online;
+      }
+    } finally {
+      _isCheckingConnection = false;
     }
     notifyListeners();
+  }
+
+  /// Giữ tên cũ cho nút bấm vào huy hiệu hạn mức.
+  Future<void> refreshQuota() => checkConnection();
+
+  /// Đang mất kết nối thì kiểm tra lại một lần trước khi cho gọi AI.
+  Future<bool> _ensureAiAvailable() async {
+    if (_connection.isAiAvailable) {
+      return true;
+    }
+    await checkConnection();
+    return _connection.isAiAvailable;
   }
 
   void _applyQuota(Object? quota) {
@@ -802,6 +876,13 @@ class TutorViewModel extends ChangeNotifier {
       );
     }
 
+    if (!_connection.isAiAvailable) {
+      throw ApiException(
+        code: 'OFFLINE',
+        message: '${_connection.warningTitle}. Hãy kết nối lại rồi thử lại.',
+      );
+    }
+
     final res = await ApiClient.instance.post(
       '/api/v1/quiz/generate-mini',
       body: {
@@ -814,7 +895,7 @@ class TutorViewModel extends ChangeNotifier {
     );
 
     _applyQuota(res['quota']);
-    _isBackendOnline = true;
+    _connection = TutorConnectionStatus.online;
     notifyListeners();
 
     final data = res['data'];
@@ -850,6 +931,7 @@ class TutorViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _connectionTimer?.cancel();
     final completer = _streamCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();

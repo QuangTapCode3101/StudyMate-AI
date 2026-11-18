@@ -12,6 +12,7 @@ import 'widgets/chat_history_sheet.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/citation_viewer_sheet.dart';
+import 'widgets/connection_banner.dart';
 import 'widgets/mini_quiz_sheet.dart';
 import 'widgets/quick_action_chips.dart';
 import 'widgets/topic_picker_sheet.dart';
@@ -36,7 +37,7 @@ class _TutorView extends StatefulWidget {
   State<_TutorView> createState() => _TutorViewState();
 }
 
-class _TutorViewState extends State<_TutorView> {
+class _TutorViewState extends State<_TutorView> with WidgetsBindingObserver {
   static const double _stickToBottomDistance = 120;
 
   final TextEditingController _inputController = TextEditingController();
@@ -53,7 +54,22 @@ class _TutorViewState extends State<_TutorView> {
   int? _editingMessageId;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Quay lại app từ nền: kiểm tra lại kết nối ngay thay vì chờ chu kỳ 15 giây.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<TutorViewModel>().checkConnection();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inputController.dispose();
     _inputFocus.dispose();
     _scrollController.dispose();
@@ -91,6 +107,7 @@ class _TutorViewState extends State<_TutorView> {
         await vm.selectTopic(topicId);
       }
       if (shouldRefresh && mounted) {
+        vm.checkConnection();
         await vm.refreshTopics();
       }
     });
@@ -267,8 +284,10 @@ class _TutorViewState extends State<_TutorView> {
     _syncEditingState(vm);
     _scheduleAutoScroll(vm);
 
-    final canInteract =
-        vm.topicContext != null && !vm.isLoading && !vm.isStreaming;
+    final canInteract = vm.topicContext != null &&
+        !vm.isLoading &&
+        !vm.isStreaming &&
+        vm.isAiAvailable;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -276,6 +295,12 @@ class _TutorViewState extends State<_TutorView> {
         child: Column(
           children: [
             _buildHeader(vm, nav),
+            if (!vm.isAiAvailable)
+              ConnectionBanner(
+                status: vm.connectionStatus,
+                isChecking: vm.isCheckingConnection,
+                onRetry: vm.checkConnection,
+              ),
             if (vm.topicContext != null)
               QuickActionChips(
                 selected: vm.selectedMode,
@@ -293,6 +318,9 @@ class _TutorViewState extends State<_TutorView> {
               focusNode: _inputFocus,
               isEditing: _editingMessageId != null,
               onCancelEdit: _cancelEdit,
+              hintText: vm.isAiAvailable
+                  ? null
+                  : 'Chưa kết nối được - tạm thời không hỏi được AI',
             ),
           ],
         ),
@@ -411,7 +439,10 @@ class _TutorViewState extends State<_TutorView> {
           showMiniQuizButton: index == quizIndex && !vm.isStreaming,
           onCitationTap: _openCitation,
           onMiniQuizTap: () => _openMiniQuiz(vm, message),
-          onEditTap: index == editableIndex ? () => _startEdit(message) : null,
+          miniQuizEnabled: vm.isAiAvailable,
+          onEditTap: index == editableIndex && vm.isAiAvailable
+              ? () => _startEdit(message)
+              : null,
         );
       },
     );
