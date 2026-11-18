@@ -12,6 +12,7 @@ import 'widgets/chat_history_sheet.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/citation_viewer_sheet.dart';
+import 'widgets/connection_banner.dart';
 import 'widgets/mini_quiz_sheet.dart';
 import 'widgets/quick_action_chips.dart';
 import 'widgets/topic_picker_sheet.dart';
@@ -36,10 +37,11 @@ class _TutorView extends StatefulWidget {
   State<_TutorView> createState() => _TutorViewState();
 }
 
-class _TutorViewState extends State<_TutorView> {
+class _TutorViewState extends State<_TutorView> with WidgetsBindingObserver {
   static const double _stickToBottomDistance = 120;
 
   final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final TutorRepository _repository = TutorRepository();
 
@@ -48,9 +50,28 @@ class _TutorViewState extends State<_TutorView> {
   int _lastMessageCount = 0;
   int _lastContentLength = 0;
 
+  /// id của câu hỏi đang được sửa; null nghĩa là đang ở chế độ hỏi bình thường.
+  int? _editingMessageId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Quay lại app từ nền: kiểm tra lại kết nối ngay thay vì chờ chu kỳ 15 giây.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<TutorViewModel>().checkConnection();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inputController.dispose();
+    _inputFocus.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -86,6 +107,7 @@ class _TutorViewState extends State<_TutorView> {
         await vm.selectTopic(topicId);
       }
       if (shouldRefresh && mounted) {
+        vm.checkConnection();
         await vm.refreshTopics();
       }
     });
@@ -139,7 +161,51 @@ class _TutorViewState extends State<_TutorView> {
       return;
     }
     _inputController.clear();
-    vm.sendUserMessage(text);
+
+    if (_editingMessageId != null) {
+      setState(() => _editingMessageId = null);
+      vm.editLastQuestion(text);
+    } else {
+      vm.sendUserMessage(text);
+    }
+  }
+
+  /// Bấm bút chì ở câu hỏi mới nhất: đưa nội dung lên ô nhập để sửa.
+  void _startEdit(ChatMessageModel message) {
+    _inputController.value = TextEditingValue(
+      text: message.content,
+      selection: TextSelection.collapsed(offset: message.content.length),
+    );
+    setState(() => _editingMessageId = message.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _inputFocus.requestFocus();
+      }
+    });
+  }
+
+  void _cancelEdit() {
+    _inputController.clear();
+    setState(() => _editingMessageId = null);
+  }
+
+  /// Thoát chế độ sửa nếu câu hỏi đó không còn sửa được
+  /// (đổi chủ đề, đổi phiên, hoặc đã bấm gửi một câu khác).
+  void _syncEditingState(TutorViewModel vm) {
+    final editingId = _editingMessageId;
+    if (editingId == null) {
+      return;
+    }
+    final index = vm.editableMessageIndex;
+    final editableId = index >= 0 ? vm.messages[index].id : null;
+    if (editableId == editingId) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editingMessageId == editingId) {
+        _cancelEdit();
+      }
+    });
   }
 
   Future<void> _openTopicPicker(
@@ -215,10 +281,13 @@ class _TutorViewState extends State<_TutorView> {
     final nav = context.watch<ActiveStudyContextProvider>();
 
     _syncWithNavigation(nav, vm);
+    _syncEditingState(vm);
     _scheduleAutoScroll(vm);
 
-    final canInteract =
-        vm.topicContext != null && !vm.isLoading && !vm.isStreaming;
+    final canInteract = vm.topicContext != null &&
+        !vm.isLoading &&
+        !vm.isStreaming &&
+        vm.isAiAvailable;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -226,6 +295,12 @@ class _TutorViewState extends State<_TutorView> {
         child: Column(
           children: [
             _buildHeader(vm, nav),
+            if (!vm.isAiAvailable)
+              ConnectionBanner(
+                status: vm.connectionStatus,
+                isChecking: vm.isCheckingConnection,
+                onRetry: vm.checkConnection,
+              ),
             if (vm.topicContext != null)
               QuickActionChips(
                 selected: vm.selectedMode,
@@ -238,6 +313,14 @@ class _TutorViewState extends State<_TutorView> {
               controller: _inputController,
               enabled: canInteract,
               onSend: () => _send(vm),
+              showStop: vm.canStop,
+              onStop: vm.stopStreaming,
+              focusNode: _inputFocus,
+              isEditing: _editingMessageId != null,
+              onCancelEdit: _cancelEdit,
+              hintText: vm.isAiAvailable
+                  ? null
+                  : 'Chưa kết nối được - tạm thời không hỏi được AI',
             ),
           ],
         ),
@@ -341,6 +424,7 @@ class _TutorViewState extends State<_TutorView> {
     }
 
     final quizIndex = vm.latestAiMessageIndex;
+    final editableIndex = vm.editableMessageIndex;
     final messages = vm.messages;
 
     return ListView.builder(
@@ -355,6 +439,10 @@ class _TutorViewState extends State<_TutorView> {
           showMiniQuizButton: index == quizIndex && !vm.isStreaming,
           onCitationTap: _openCitation,
           onMiniQuizTap: () => _openMiniQuiz(vm, message),
+          miniQuizEnabled: vm.isAiAvailable,
+          onEditTap: index == editableIndex && vm.isAiAvailable
+              ? () => _startEdit(message)
+              : null,
         );
       },
     );

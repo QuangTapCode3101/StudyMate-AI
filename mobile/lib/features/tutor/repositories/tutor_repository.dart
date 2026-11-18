@@ -184,6 +184,30 @@ class TutorRepository {
     return rows.map(ChatMessageModel.fromMap).toList();
   }
 
+  /// Xóa tin nhắn [messageId] và mọi tin nhắn đứng sau nó trong cùng phiên
+  /// (dùng khi người dùng sửa lại câu hỏi mới nhất rồi hỏi lại AI).
+  Future<void> deleteMessagesFrom({
+    required int sessionId,
+    required int messageId,
+  }) async {
+    final db = await _db;
+    await db.delete(
+      'chat_messages',
+      where: 'session_id = ? AND id >= ?',
+      whereArgs: [sessionId, messageId],
+    );
+  }
+
+  Future<void> updateSessionTitle(int sessionId, String title) async {
+    final db = await _db;
+    await db.update(
+      'chat_sessions',
+      {'title': title},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
   /// Lưu tin nhắn và trả về bản có `id` thật.
   Future<ChatMessageModel> insertMessage(ChatMessageModel message) async {
     final db = await _db;
