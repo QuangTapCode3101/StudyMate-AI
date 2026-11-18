@@ -25,6 +25,9 @@ void main() async {
       child: const StudyMateApp(),
     ),
   );
+  DatabaseHelper.instance.seedDemoFlutterCourse().catchError((e) {
+    debugPrint("Lỗi nạp seed data: $e");
+  });
 }
 
 class StudyMateApp extends StatelessWidget {
