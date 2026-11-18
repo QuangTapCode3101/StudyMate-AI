@@ -7,7 +7,8 @@ plugins {
 android {
     namespace = "com.studymate.studymate_ai"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Bỏ qua yêu cầu NDK nếu ứng dụng không dùng native C/C++ để tránh lỗi thiếu NDK trên máy phát triển
+    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
