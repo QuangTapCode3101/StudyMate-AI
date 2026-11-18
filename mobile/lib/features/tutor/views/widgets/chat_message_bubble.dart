@@ -14,6 +14,7 @@ class ChatMessageBubble extends StatelessWidget {
     required this.showMiniQuizButton,
     required this.onCitationTap,
     required this.onMiniQuizTap,
+    this.onEditTap,
   });
 
   final ChatMessageModel message;
@@ -21,29 +22,50 @@ class ChatMessageBubble extends StatelessWidget {
   final ValueChanged<CitationModel> onCitationTap;
   final VoidCallback onMiniQuizTap;
 
+  /// Khác null chỉ ở câu hỏi mới nhất của người dùng (cho phép sửa); null thì ẩn nút bút chì.
+  final VoidCallback? onEditTap;
+
   @override
   Widget build(BuildContext context) {
     return message.isUser ? _buildUserBubble(context) : _buildAiBubble(context);
   }
 
   Widget _buildUserBubble(BuildContext context) {
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        color: TutorStyle.primary,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(4),
+        ),
+      ),
+      child: Text(
+        message.content,
+        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+      ),
+    );
+
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(left: 48, bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
-          color: TutorStyle.primary,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(4),
-          ),
-        ),
-        child: Text(
-          message.content,
-          style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+      child: Padding(
+        padding: EdgeInsets.only(left: onEditTap == null ? 48 : 16, bottom: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (onEditTap != null)
+              IconButton(
+                onPressed: onEditTap,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                color: TutorStyle.textMuted,
+                tooltip: 'Sửa câu hỏi',
+                visualDensity: VisualDensity.compact,
+              ),
+            Flexible(child: bubble),
+          ],
         ),
       ),
     );

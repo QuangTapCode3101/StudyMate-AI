@@ -58,6 +58,7 @@ class TutorViewModel extends ChangeNotifier {
   String? _pendingPrompt;
   bool _disposed = false;
   bool _isStopping = false;
+  bool _isResending = false;
 
   List<TutorContext> get topics => _topics;
   TutorContext? get topicContext => _topicContext;
@@ -76,6 +77,21 @@ class TutorViewModel extends ChangeNotifier {
   /// Chỉ cho bấm nút Dừng khi bong bóng AI đã xuất hiện (luồng đã bắt đầu chạy).
   bool get canStop =>
       _isStreaming && !_isStopping && _messages.any((m) => m.isStreaming);
+
+  /// Vị trí câu hỏi MỚI NHẤT của người dùng nếu đang được phép sửa, -1 nếu không.
+  /// Chỉ sửa câu mới nhất, vì sửa câu ở giữa sẽ làm các câu trả lời phía sau mất ý nghĩa.
+  int get editableMessageIndex {
+    if (_isStreaming || _isLoading || _isResending || _session == null) {
+      return -1;
+    }
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final message = _messages[i];
+      if (message.isUser) {
+        return message.id == null ? -1 : i;
+      }
+    }
+    return -1;
+  }
 
   /// Vị trí tin nhắn AI cuối cùng đã hoàn tất (để gắn nút Kiểm tra nhanh 3 câu), -1 nếu chưa có.
   int get latestAiMessageIndex {
@@ -320,14 +336,71 @@ class TutorViewModel extends ChangeNotifier {
       return;
     }
     _selectedMode = null;
-    final title = prompt.length > _maxSessionTitleLength
-        ? '${prompt.substring(0, _maxSessionTitleLength)}…'
-        : prompt;
     // Câu hỏi tự do dùng chế độ giải thích cơ bản.
     await _send(
       mode: TutorActionMode.basic,
       prompt: prompt,
-      sessionTitle: title,
+      sessionTitle: _titleFromPrompt(prompt),
+    );
+  }
+
+  String _titleFromPrompt(String prompt) {
+    return prompt.length > _maxSessionTitleLength
+        ? '${prompt.substring(0, _maxSessionTitleLength)}…'
+        : prompt;
+  }
+
+  /// Sửa câu hỏi mới nhất rồi hỏi lại AI.
+  /// Câu hỏi cũ và câu trả lời cũ của AI (nếu có) bị xóa khỏi lịch sử,
+  /// sau đó [text] được gửi đi như một câu hỏi mới.
+  Future<void> editLastQuestion(String text) async {
+    final prompt = text.trim();
+    final index = editableMessageIndex;
+    final session = _session;
+    if (prompt.isEmpty || index < 0 || session == null) {
+      return;
+    }
+
+    final target = _messages[index];
+    _isResending = true;
+    try {
+      await _repository.deleteMessagesFrom(
+        sessionId: session.id!,
+        messageId: target.id!,
+      );
+
+      // Câu đầu tiên của phiên đang làm tên phiên trong lịch sử, cập nhật theo câu mới.
+      if (index == 0) {
+        final title = _titleFromPrompt(prompt);
+        await _repository.updateSessionTitle(session.id!, title);
+        final renamed = session.copyWith(title: title);
+        _session = renamed;
+        _sessions = _sessions
+            .map((s) => s.id == renamed.id ? renamed : s)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Lỗi sửa câu hỏi: $e');
+      _isResending = false;
+      _errorMessage = 'Không sửa được câu hỏi. Vui lòng thử lại.';
+      _canRetry = false;
+      notifyListeners();
+      return;
+    }
+
+    _messages = _messages.sublist(0, index);
+    _selectedMode = null;
+    _errorMessage = null;
+    _canRetry = false;
+    _pendingMode = null;
+    _pendingPrompt = null;
+    _isResending = false;
+    notifyListeners();
+
+    await _send(
+      mode: TutorActionMode.basic,
+      prompt: prompt,
+      sessionTitle: _titleFromPrompt(prompt),
     );
   }
 

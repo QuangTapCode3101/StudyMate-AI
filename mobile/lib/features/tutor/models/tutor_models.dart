@@ -165,6 +165,17 @@ class ChatSessionModel {
   final String createdAt;
   final int messageCount;
 
+  ChatSessionModel copyWith({String? title}) {
+    return ChatSessionModel(
+      id: id,
+      subjectId: subjectId,
+      topicId: topicId,
+      title: title ?? this.title,
+      createdAt: createdAt,
+      messageCount: messageCount,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         if (id != null) 'id': id,
         'subject_id': subjectId,

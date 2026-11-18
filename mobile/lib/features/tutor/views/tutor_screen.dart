@@ -40,6 +40,7 @@ class _TutorViewState extends State<_TutorView> {
   static const double _stickToBottomDistance = 120;
 
   final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final TutorRepository _repository = TutorRepository();
 
@@ -48,9 +49,13 @@ class _TutorViewState extends State<_TutorView> {
   int _lastMessageCount = 0;
   int _lastContentLength = 0;
 
+  /// id của câu hỏi đang được sửa; null nghĩa là đang ở chế độ hỏi bình thường.
+  int? _editingMessageId;
+
   @override
   void dispose() {
     _inputController.dispose();
+    _inputFocus.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -139,7 +144,51 @@ class _TutorViewState extends State<_TutorView> {
       return;
     }
     _inputController.clear();
-    vm.sendUserMessage(text);
+
+    if (_editingMessageId != null) {
+      setState(() => _editingMessageId = null);
+      vm.editLastQuestion(text);
+    } else {
+      vm.sendUserMessage(text);
+    }
+  }
+
+  /// Bấm bút chì ở câu hỏi mới nhất: đưa nội dung lên ô nhập để sửa.
+  void _startEdit(ChatMessageModel message) {
+    _inputController.value = TextEditingValue(
+      text: message.content,
+      selection: TextSelection.collapsed(offset: message.content.length),
+    );
+    setState(() => _editingMessageId = message.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _inputFocus.requestFocus();
+      }
+    });
+  }
+
+  void _cancelEdit() {
+    _inputController.clear();
+    setState(() => _editingMessageId = null);
+  }
+
+  /// Thoát chế độ sửa nếu câu hỏi đó không còn sửa được
+  /// (đổi chủ đề, đổi phiên, hoặc đã bấm gửi một câu khác).
+  void _syncEditingState(TutorViewModel vm) {
+    final editingId = _editingMessageId;
+    if (editingId == null) {
+      return;
+    }
+    final index = vm.editableMessageIndex;
+    final editableId = index >= 0 ? vm.messages[index].id : null;
+    if (editableId == editingId) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editingMessageId == editingId) {
+        _cancelEdit();
+      }
+    });
   }
 
   Future<void> _openTopicPicker(
@@ -215,6 +264,7 @@ class _TutorViewState extends State<_TutorView> {
     final nav = context.watch<ActiveStudyContextProvider>();
 
     _syncWithNavigation(nav, vm);
+    _syncEditingState(vm);
     _scheduleAutoScroll(vm);
 
     final canInteract =
@@ -240,6 +290,9 @@ class _TutorViewState extends State<_TutorView> {
               onSend: () => _send(vm),
               showStop: vm.canStop,
               onStop: vm.stopStreaming,
+              focusNode: _inputFocus,
+              isEditing: _editingMessageId != null,
+              onCancelEdit: _cancelEdit,
             ),
           ],
         ),
@@ -343,6 +396,7 @@ class _TutorViewState extends State<_TutorView> {
     }
 
     final quizIndex = vm.latestAiMessageIndex;
+    final editableIndex = vm.editableMessageIndex;
     final messages = vm.messages;
 
     return ListView.builder(
@@ -357,6 +411,7 @@ class _TutorViewState extends State<_TutorView> {
           showMiniQuizButton: index == quizIndex && !vm.isStreaming,
           onCitationTap: _openCitation,
           onMiniQuizTap: () => _openMiniQuiz(vm, message),
+          onEditTap: index == editableIndex ? () => _startEdit(message) : null,
         );
       },
     );
