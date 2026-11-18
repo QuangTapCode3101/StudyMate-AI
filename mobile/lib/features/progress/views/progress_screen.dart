@@ -90,7 +90,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               index: _selectedSubTab,
               children: const [
                 FlashcardDecksTab(),
-                Center(child: Text('Sub-tab 1: Bộ thẻ SM-2 (M4 phụ trách)')),
+            
 
                 // Ngăn 1: Toàn bộ nội dung TASK-602 của M1
                 AnalyticsDashboardTab(),
