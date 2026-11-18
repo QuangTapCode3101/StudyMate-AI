@@ -57,6 +57,7 @@ class TutorViewModel extends ChangeNotifier {
   TutorActionMode? _pendingMode;
   String? _pendingPrompt;
   bool _disposed = false;
+  bool _isStopping = false;
 
   List<TutorContext> get topics => _topics;
   TutorContext? get topicContext => _topicContext;
@@ -71,6 +72,10 @@ class TutorViewModel extends ChangeNotifier {
   int get remainingQuota => _remainingQuota;
   int get maxQuota => _maxQuota;
   bool get isBackendOnline => _isBackendOnline;
+
+  /// Chỉ cho bấm nút Dừng khi bong bóng AI đã xuất hiện (luồng đã bắt đầu chạy).
+  bool get canStop =>
+      _isStreaming && !_isStopping && _messages.any((m) => m.isStreaming);
 
   /// Vị trí tin nhắn AI cuối cùng đã hoàn tất (để gắn nút Kiểm tra nhanh 3 câu), -1 nếu chưa có.
   int get latestAiMessageIndex {
@@ -604,6 +609,67 @@ class TutorViewModel extends ChangeNotifier {
     } else {
       _errorMessage = 'Đã xảy ra lỗi khi nhận câu trả lời từ AI.';
     }
+    notifyListeners();
+  }
+
+  /// Người dùng bấm Dừng: ngắt luồng SSE và GIỮ LẠI phần chữ AI đã viết.
+  /// Phần giữ lại được lưu vào SQLite (không có nguồn trích dẫn vì AI chưa trả lời xong).
+  /// Lượt gọi AI đã bị Backend trừ quota thì không hoàn lại được.
+  Future<void> stopStreaming() async {
+    if (!canStop) {
+      return;
+    }
+    _isStopping = true;
+
+    final session = _session;
+    final streamingIndex = _messages.lastIndexWhere((m) => m.isStreaming);
+    final partial =
+        streamingIndex >= 0 ? _messages[streamingIndex].content : '';
+
+    // Hủy luồng nhưng vẫn giữ _isStreaming = true cho tới khi lưu xong,
+    // để người dùng không gửi câu mới chen vào giữa chừng.
+    final stopToken = ++_streamToken;
+    final subscription = _subscription;
+    _subscription = null;
+    final completer = _streamCompleter;
+    _streamCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+    await subscription?.cancel();
+
+    ChatMessageModel? saved;
+    if (session != null && partial.trim().isNotEmpty) {
+      try {
+        saved = await _repository.insertMessage(
+          ChatMessageModel(
+            sessionId: session.id!,
+            role: ChatMessageModel.roleAi,
+            content: partial,
+            createdAt: DateTime.now().toIso8601String(),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Lỗi lưu câu trả lời bị dừng: $e');
+      }
+    }
+
+    _isStopping = false;
+    // Nếu trong lúc lưu có thao tác khác (đổi chủ đề, đổi phiên...) đã dọn trạng thái thì thôi.
+    if (stopToken != _streamToken || _disposed) {
+      return;
+    }
+
+    final updated = _messages.where((m) => !m.isStreaming).toList();
+    if (saved != null) {
+      updated.add(saved);
+    }
+    _messages = updated;
+    _isStreaming = false;
+    _errorMessage = null;
+    _canRetry = false;
+    _pendingMode = null;
+    _pendingPrompt = null;
     notifyListeners();
   }
 

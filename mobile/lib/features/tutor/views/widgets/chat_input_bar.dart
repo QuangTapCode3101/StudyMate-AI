@@ -9,11 +9,17 @@ class ChatInputBar extends StatelessWidget {
     required this.controller,
     required this.enabled,
     required this.onSend,
+    this.showStop = false,
+    this.onStop,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final VoidCallback onSend;
+
+  /// Đang nhận câu trả lời: nút Gửi đổi thành nút Dừng.
+  final bool showStop;
+  final VoidCallback? onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -48,12 +54,20 @@ class ChatInputBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton.filled(
-            onPressed: enabled ? onSend : null,
-            icon: const Icon(Icons.send, size: 20),
-            style: IconButton.styleFrom(backgroundColor: TutorStyle.primary),
-            tooltip: 'Gửi',
-          ),
+          if (showStop)
+            IconButton.filled(
+              onPressed: onStop,
+              icon: const Icon(Icons.stop, size: 22),
+              style: IconButton.styleFrom(backgroundColor: TutorStyle.danger),
+              tooltip: 'Dừng câu trả lời',
+            )
+          else
+            IconButton.filled(
+              onPressed: enabled ? onSend : null,
+              icon: const Icon(Icons.send, size: 20),
+              style: IconButton.styleFrom(backgroundColor: TutorStyle.primary),
+              tooltip: 'Gửi',
+            ),
         ],
       ),
     );

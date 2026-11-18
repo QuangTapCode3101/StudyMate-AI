@@ -238,6 +238,8 @@ class _TutorViewState extends State<_TutorView> {
               controller: _inputController,
               enabled: canInteract,
               onSend: () => _send(vm),
+              showStop: vm.canStop,
+              onStop: vm.stopStreaming,
             ),
           ],
         ),
