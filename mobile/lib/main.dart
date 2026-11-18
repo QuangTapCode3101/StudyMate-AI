@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:studymate_ai/features/progress/viewmodels/analytics_viewmodel.dart';
 import 'core/database/database_helper.dart';
 import 'core/providers/active_context_provider.dart';
 import 'core/widgets/main_navigation_shell.dart';
@@ -19,6 +20,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => HomeViewModel()),
         ChangeNotifierProvider(create: (_) => QuizViewModel()),
         ChangeNotifierProvider(create: (_) => FlashcardViewModel()),
+        ChangeNotifierProvider(create: (_) => AnalyticsViewModel()),
       ],
       child: const StudyMateApp(),
     ),

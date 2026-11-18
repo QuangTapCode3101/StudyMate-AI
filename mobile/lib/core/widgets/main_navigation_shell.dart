@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../features/library/screens/library_screen.dart';
+import '../../features/progress/views/progress_screen.dart';
 import '../../features/dashboard/views/home_screen.dart';
-import '../../features/flashcards/views/progress_screen.dart';
 import '../../features/quiz/views/quiz_setup_screen.dart';
+import '../../features/tutor/views/tutor_screen.dart';
 import '../providers/active_context_provider.dart';
 
 class MainNavigationShell extends StatelessWidget {
@@ -11,10 +13,10 @@ class MainNavigationShell extends StatelessWidget {
   // 5 Tab chính của ứng dụng
   static const List<Widget> _tabs = [
     HomeScreen(),
-    Center(child: Text('SCR-02: Thư viện môn học (M2 phụ trách)')),
-    Center(child: Text('SCR-05: AI Tutor (M3 phụ trách)')),
-    QuizSetupScreen(), // SCR-06: M4 phụ trách
-    ProgressScreen(),  // SCR-09: M1 & M4 phụ trách
+    LibraryScreen(),
+    TutorScreen(),
+    QuizSetupScreen(),
+    ProgressScreen(),
   ];
 
   @override
