@@ -4,6 +4,7 @@ import 'core/database/database_helper.dart';
 import 'core/providers/active_context_provider.dart';
 import 'core/widgets/main_navigation_shell.dart';
 import 'features/dashboard/viewmodels/home_viewmodel.dart';
+import 'features/quiz/viewmodels/quiz_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ActiveStudyContextProvider()),
         ChangeNotifierProvider(create: (_) => HomeViewModel()),
+        ChangeNotifierProvider(create: (_) => QuizViewModel()),
       ],
       child: const StudyMateApp(),
     ),
