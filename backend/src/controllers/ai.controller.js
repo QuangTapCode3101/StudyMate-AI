@@ -1,13 +1,14 @@
+const geminiService = require('../services/gemini.service');
+
 const isMockEnabled = (req) =>
   process.env.USE_MOCK_AI === 'true' || req.headers['x-mock-mode'] === 'true';
 
 /**
- * 1. API Bóc tách Chủ đề từ PDF/Notes/Code (Dành cho M2 - SCR-04)
- * POST /api/v1/documents/extract-topics
+ * 1. POST /api/v1/documents/extract-topics (M2 - SCR-04)
  */
 exports.extractTopics = async (req, res, next) => {
   try {
-    const { subjectName, documentTitle, chunks } = req.body;
+    const { subjectName, programmingLanguage, documentTitle, chunks } = req.body;
 
     if (!chunks || !Array.isArray(chunks) || chunks.length === 0) {
       return res.status(400).json({
@@ -21,32 +22,38 @@ exports.extractTopics = async (req, res, next) => {
         success: true,
         quota: req.quotaInfo,
         data: {
-          summary: `Tài liệu ${documentTitle || 'môn học'} trình bày về quản lý trạng thái và vòng đời Widget trong ${subjectName || 'Flutter'}.`,
           topics: [
             {
               name: 'ChangeNotifier',
               keywords: ['ChangeNotifier', 'notifyListeners()', 'extends'],
-              chunkIndices: [1],
+              chunkIndices: [chunks[0].chunkIndex || 1],
             },
             {
               name: 'Provider & Consumer',
               keywords: ['Provider', 'Consumer', 'context.watch()', 'context.read()'],
-              chunkIndices: [1],
+              chunkIndices: [chunks[0].chunkIndex || 1],
             },
             {
               name: 'Widget Rebuild Lifecycle',
               keywords: ['build()', 'StatefulWidget', 'rebuild'],
-              chunkIndices: [1],
+              chunkIndices: [chunks[chunks.length - 1].chunkIndex || 1],
             },
           ],
         },
       });
     }
 
-    // TODO (TASK-202 - M5): Gọi geminiService.extractTopicsFromChunks(...) tại đây
-    return res.status(501).json({
-      success: false,
-      error: { code: 'NOT_IMPLEMENTED', message: 'Chế độ Gemini thật đang được M5 tích hợp. Hãy bật USE_MOCK_AI=true.' },
+    const result = await geminiService.extractTopicsFromChunks({
+      subjectName,
+      programmingLanguage,
+      documentTitle,
+      chunks,
+    });
+
+    return res.status(200).json({
+      success: true,
+      quota: req.quotaInfo,
+      data: result,
     });
   } catch (err) {
     next(err);
@@ -54,16 +61,16 @@ exports.extractTopics = async (req, res, next) => {
 };
 
 /**
- * 2. API AI Tutor Streaming SSE (Dành cho M3 - SCR-05)
- * POST /api/v1/tutor/stream
+ * 2. POST /api/v1/tutor/stream (M3 - SCR-05)
  */
 exports.streamTutorResponse = async (req, res, next) => {
-  try {
-    // Thiết lập Header chuẩn Server-Sent Events (SSE)
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+  // Thiết lập Header SSE
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
 
+  try {
     if (isMockEnabled(req)) {
       const mockStreamChunks = [
         'Đây là sự khác biệt cốt lõi giữa `context.watch<T>()` và `context.read<T>()` trong Flutter:\n\n',
@@ -75,41 +82,76 @@ exports.streamTutorResponse = async (req, res, next) => {
       let index = 0;
       const intervalId = setInterval(() => {
         if (index < mockStreamChunks.length) {
-          const payload = JSON.stringify({ type: 'chunk', text: mockStreamChunks[index] });
-          res.write(`data: ${payload}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: 'chunk', text: mockStreamChunks[index] })}\n\n`);
           index++;
         } else {
           clearInterval(intervalId);
-          const donePayload = JSON.stringify({
-            type: 'done',
-            citations: ['Trang 12'],
-            quota: req.quotaInfo,
-          });
-          res.write(`data: ${donePayload}\n\n`);
+          res.write(
+            `data: ${JSON.stringify({
+              type: 'done',
+              citations: ['Trang 12'],
+              quota: req.quotaInfo,
+            })}\n\n`
+          );
           res.end();
         }
-      }, 250); // Giả lập chữ chảy mỗi 250ms để M3 test UI Streaming mượt mà
+      }, 200);
 
       req.on('close', () => clearInterval(intervalId));
       return;
     }
 
-    // TODO (TASK-203 - M5): Gọi geminiService.streamTutor(...) tại đây
-    res.write(`data: ${JSON.stringify({ type: 'error', message: 'Gemini Stream chưa cấu hình' })}\n\n`);
-    res.end();
+    const { subjectName, programmingLanguage, topicName, actionMode, userPrompt, sourceChunks, chatHistory } = req.body;
+
+    const { citations } = await geminiService.streamTutor({
+      subjectName,
+      programmingLanguage,
+      topicName,
+      actionMode,
+      userPrompt,
+      sourceChunks,
+      chatHistory,
+      onChunk: (text) => {
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ type: 'chunk', text })}\n\n`);
+        }
+      },
+    });
+
+    if (!res.writableEnded) {
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'done',
+          citations,
+          quota: req.quotaInfo,
+        })}\n\n`
+      );
+      res.end();
+    }
   } catch (err) {
-    next(err);
+    console.error('[SSE Stream Error]:', err);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: err.message || 'Lỗi luồng AI Tutor' })}\n\n`);
+      res.end();
+    }
   }
 };
 
 /**
- * 3. API Tạo đề Technical Quiz (Dành cho M4 - SCR-06 & SCR-07)
- * POST /api/v1/quiz/generate
+ * 3. POST /api/v1/quiz/generate (M4 - SCR-06 & SCR-07)
  */
 exports.generateTechnicalQuiz = async (req, res, next) => {
   try {
-    const { topics } = req.body;
-    const defaultTopicId = topics && topics.length > 0 ? topics[0].topicId : 3;
+    const { programmingLanguage, difficulty, questionCount, questionTypes, topics } = req.body;
+
+    if (!topics || !Array.isArray(topics) || topics.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'Cần chọn ít nhất 1 chủ đề để tạo đề Quiz.' },
+      });
+    }
+
+    const defaultTopicId = topics[0].topicId || 1;
 
     if (isMockEnabled(req)) {
       return res.status(200).json({
@@ -131,7 +173,7 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
               ],
               correctIndex: 1,
               explanation:
-                'Hàm onPressed là một callback sự kiện, không phải hàm build. Gọi context.watch() ở đây sẽ gây lỗi runtime; phải dùng context.read<CartModel>().',
+                'Hàm onPressed là callback sự kiện, không phải hàm build. Gọi context.watch() ở đây sẽ gây lỗi runtime; phải dùng context.read<CartModel>().',
             },
             {
               topicId: defaultTopicId,
@@ -148,10 +190,18 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
       });
     }
 
-    // TODO (TASK-204 - M5): Gọi geminiService.generateQuiz(...) tại đây
-    return res.status(501).json({
-      success: false,
-      error: { code: 'NOT_IMPLEMENTED', message: 'Hãy bật USE_MOCK_AI=true để test.' },
+    const result = await geminiService.generateQuiz({
+      programmingLanguage,
+      difficulty,
+      questionCount,
+      questionTypes,
+      topics,
+    });
+
+    return res.status(200).json({
+      success: true,
+      quota: req.quotaInfo,
+      data: result,
     });
   } catch (err) {
     next(err);
@@ -159,11 +209,13 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
 };
 
 /**
- * 4. API Tạo nhanh Mini-Quiz 3 câu ngay dưới câu trả lời AI Tutor (Dành cho M3 - MDL-02)
- * POST /api/v1/quiz/generate-mini
+ * 4. POST /api/v1/quiz/generate-mini (M3 - MDL-02: Đủ 3 câu trắc nghiệm nhanh)
  */
 exports.generateMiniQuiz = async (req, res, next) => {
   try {
+    const { programmingLanguage, topicId, tutorAnswer, content } = req.body;
+    const referenceText = tutorAnswer || content;
+
     if (isMockEnabled(req)) {
       return res.status(200).json({
         success: true,
@@ -171,21 +223,59 @@ exports.generateMiniQuiz = async (req, res, next) => {
         data: {
           questions: [
             {
+              topicId: topicId || 1,
               questionType: 'CONCEPT',
-              questionText: 'Khi chỉ muốn gọi một phương thức trong onPressed mà không cần rebuild Widget, ta dùng hàm nào?',
+              questionText: 'Khi chỉ muốn gọi phương thức trong onPressed mà không cần rebuild Widget, ta dùng hàm nào?',
               codeSnippet: 'context.____<Counter>().increment();',
               options: ['context.watch()', 'context.read()', 'context.select()', 'Consumer'],
               correctIndex: 1,
               explanation: 'context.read<T>() chỉ đọc đối tượng từ Provider 1 lần mà không đăng ký lắng nghe thay đổi.',
+            },
+            {
+              topicId: topicId || 1,
+              questionType: 'CONCEPT',
+              questionText: 'Hàm nào dưới đây sẽ đăng ký lắng nghe thay đổi và tự động gọi lại build() khi state cập nhật?',
+              codeSnippet: null,
+              options: ['context.read<T>()', 'context.watch<T>()', 'Provider.of(context, listen: false)', 'Navigator.of(context)'],
+              correctIndex: 1,
+              explanation: 'context.watch<T>() tương đương Provider.of<T>(context, listen: true), dùng trong hàm build().',
+            },
+            {
+              topicId: topicId || 1,
+              questionType: 'PREDICT_OUTPUT',
+              questionText: 'Điều gì xảy ra nếu gọi context.watch<Counter>() bên trong hàm initState()?',
+              codeSnippet: '1  @override\n2  void initState() {\n3    super.initState();\n4    final c = context.watch<Counter>();\n5  }',
+              options: [
+                'Chạy bình thường và cập nhật UI',
+                'Ném ngoại lệ ProviderException vì gọi ngoài hàm build',
+                'Trả về giá trị null',
+                'Tự động chuyển thành context.read()',
+              ],
+              correctIndex: 1,
+              explanation: 'context.watch() chỉ được phép gọi bên trong phương thức build() của Widget.',
             },
           ],
         },
       });
     }
 
-    return res.status(501).json({
-      success: false,
-      error: { code: 'NOT_IMPLEMENTED', message: 'Hãy bật USE_MOCK_AI=true để test.' },
+    if (!referenceText) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'Thiếu nội dung câu trả lời AI Tutor (tutorAnswer) để sinh Mini-Quiz.' },
+      });
+    }
+
+    const result = await geminiService.generateMiniQuizFromTutor({
+      programmingLanguage,
+      topicId,
+      tutorAnswer: referenceText,
+    });
+
+    return res.status(200).json({
+      success: true,
+      quota: req.quotaInfo,
+      data: result,
     });
   } catch (err) {
     next(err);
