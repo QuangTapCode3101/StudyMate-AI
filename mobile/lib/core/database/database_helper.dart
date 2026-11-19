@@ -229,18 +229,6 @@ class DatabaseHelper {
       }
       await batch.commit(noResult: true);
 
-      // 6. Tạo thẻ Flashcard SM-2 mồi
-      await txn.insert('flashcards', {
-        'subject_id': subjectId,
-        'topic_id': 2, // Map vào Topic "Môi trường & Công cụ"
-        'front_text': 'Để gọi hàm trong onPressed mà không làm rebuild Widget, ta dùng phương thức nào của Provider?',
-        'front_code': 'context.____<CartModel>().clear();',
-        'back_text': 'Đáp án: read\nPhương thức context.read<T>()...',
-        'repetition': 0,
-        'interval': 0,
-        'ease_factor': 2.5,
-        'next_review_at': now,
-      });
     });
     
     print('--- ĐÃ NẠP 300 CÂU HỎI VÀ DATA MẪU THÀNH CÔNG ---');

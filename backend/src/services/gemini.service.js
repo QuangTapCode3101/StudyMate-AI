@@ -49,11 +49,20 @@ exports.extractTopicsFromChunks = async ({ subjectName, programmingLanguage, doc
     .join('\n\n---\n\n');
 
   const systemInstruction = `Bạn là chuyên gia phân tích tài liệu giảng dạy Công nghệ Thông tin.
-Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage || 'CNTT'}), bóc tách tất cả chủ đề kiến thức được nhắc đến trong tài liệu mạch lạc, rõ ràng.
-Yêu cầu:
-- Tên chủ đề ngắn gọn, chuẩn thuật ngữ chuyên ngành.
-- "keywords": trích xuất 3-6 từ khóa, tên hàm, class hoặc khái niệm kỹ thuật đặc trưng nhất trong đoạn đó.
-- "chunkIndices": mảng các số nguyên chunkIndex chứa nội dung của chủ đề đó (bắt buộc khớp với chunkIndex đầu vào).`;
+Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage}), bóc tách TOÀN BỘ các chủ đề kiến thức được nhắc đến trong tài liệu.
+
+Quy tắc bắt buộc (Quan trọng):
+1. KHÔNG ĐƯỢC GỘP CHỦ ĐỀ: Nếu tài liệu đã chia rõ các đề mục hoặc đánh số thứ tự (ví dụ: 01, 02, 03...), phải tách riêng từng đề mục thành một object độc lập. Bắt buộc trích xuất đủ 100% số lượng đề mục có trong tài liệu, không được bỏ sót hay tóm tắt gộp.
+2. Tên chủ đề ("topic"): Ngắn gọn, chuẩn thuật ngữ chuyên ngành, giữ sát ý nghĩa của đề mục gốc.
+3. Từ khóa ("keywords"): Mảng gồm 3-6 từ khóa, tên hàm, class hoặc khái niệm kỹ thuật đặc trưng nhất nằm trong phần nội dung của chủ đề đó.
+4. Chỉ mục đoạn ("chunkIndices"): Mảng các số nguyên chunkIndex chứa nội dung chi tiết của chủ đề đó (bắt buộc khớp với chunkIndex đầu vào).
+
+Định dạng đầu ra: Chỉ trả về duy nhất một mảng JSON hợp lệ (không kèm văn bản giải thích thừa hay markdown block nếu không cần thiết), cấu trúc mỗi phần tử:
+{
+  "topic": "string",
+  "keywords": ["string"],
+  "chunkIndices": [number]
+}`;
 
   const responseSchema = {
     type: Type.OBJECT,
