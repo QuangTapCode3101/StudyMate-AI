@@ -200,13 +200,14 @@ class DatabaseHelper {
         final String topicName = t['name'] ?? 'Khối kiến thức $topicId';
 
         await txn.insert('topics', {
-          'id': topicId, // Khớp trực tiếp ID từ 1 đến 20 trong JSON
+          'id': topicId,
           'subject_id': subjectId,
           'document_id': docId,
           'name': topicName,
           'keywords_json': jsonEncode([topicName, 'Dart', 'Flutter']),
           'chunk_indices_json': jsonEncode([topicId]),
-          'quiz_count': topicId <= 3 ? 2 : 0,
+          'mastery_score': 0,
+          'quiz_count': 0,
           'updated_at': now,
         });
       }
