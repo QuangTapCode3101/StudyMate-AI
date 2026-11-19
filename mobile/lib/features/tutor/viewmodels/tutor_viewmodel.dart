@@ -883,13 +883,26 @@ class TutorViewModel extends ChangeNotifier {
       );
     }
 
+    // Tìm câu hỏi gần nhất của người dùng ngay trước câu trả lời này để tăng độ chính xác
+    String userQuestion = '';
+    final aiIndex = _messages.lastIndexWhere((m) => m.isAi && m.content == answerContent);
+    if (aiIndex > 0) {
+      for (var i = aiIndex - 1; i >= 0; i--) {
+        if (_messages[i].isUser) {
+          userQuestion = _messages[i].content;
+          break;
+        }
+      }
+    }
+
     final res = await ApiClient.instance.post(
       '/api/v1/quiz/generate-mini',
       body: {
         'programmingLanguage': context.programmingLanguage,
+        'topicId': context.topicId,
         'topicName': context.topicName,
-        'questionCount': 3,
-        'sourceContent': answerContent,
+        'userQuestion': userQuestion,
+        'tutorAnswer': answerContent,
       },
       useMock: useMock,
     );
@@ -902,8 +915,8 @@ class TutorViewModel extends ChangeNotifier {
     final rawQuestions = data is Map ? data['questions'] : null;
     final questions = rawQuestions is List
         ? rawQuestions
-            .whereType<Map<String, dynamic>>()
-            .map(MiniQuizQuestion.fromJson)
+            .whereType()
+            .map((e) => MiniQuizQuestion.fromJson(Map<String, dynamic>.from(e as Map)))
             .where((q) => q.isValid)
             .take(3)
             .toList()

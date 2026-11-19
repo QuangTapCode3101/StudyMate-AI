@@ -1,0 +1,38 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/flutter_ci.yml'
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'mobile/**'
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true # Cache SDK và pub packages để chạy nhanh hơn
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run static analysis
+        run: flutter analyze --fatal-warnings
+
+      - name: Run unit & widget tests
+        run: flutter test

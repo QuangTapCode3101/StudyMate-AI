@@ -6,15 +6,10 @@ import '../../../core/database/database_helper.dart';
 import '../models/tutor_models.dart';
 
 /// Repository của module AI Tutor.
-/// Theo phân quyền: M3 chỉ được GHI vào chat_sessions và chat_messages,
-/// các bảng còn lại (subjects, topics, document_chunks...) chỉ ĐỌC.
 class TutorRepository {
   Future<Database> get _db => DatabaseHelper.instance.database;
 
-  // ---------------------------------------------------------------------------
   // Đọc ngữ cảnh học (subjects, topics)
-  // ---------------------------------------------------------------------------
-
   static const String _topicContextSelect = '''
     SELECT t.id AS topic_id, t.name AS topic_name, t.document_id,
            t.mastery_score, s.id AS subject_id, s.name AS subject_name,
@@ -55,9 +50,7 @@ class TutorRepository {
     return rows.first['topic_id'] as int?;
   }
 
-  // ---------------------------------------------------------------------------
   // Đọc nội dung gốc (document_chunks)
-  // ---------------------------------------------------------------------------
 
   /// Các đoạn nguồn thuộc chủ đề (theo chunk_indices_json) để gửi cho AI.
   /// Nếu chủ đề không khai báo chunk nào khớp thì dùng toàn bộ tài liệu gốc.
@@ -120,10 +113,7 @@ class TutorRepository {
     return rows.map(SourceChunkModel.fromMap).toList();
   }
 
-  // ---------------------------------------------------------------------------
   // Phiên chat & tin nhắn (bảng M3 được quyền ghi)
-  // ---------------------------------------------------------------------------
-
   Future<List<ChatSessionModel>> getSessionsByTopic(int topicId) async {
     final db = await _db;
     final rows = await db.rawQuery(

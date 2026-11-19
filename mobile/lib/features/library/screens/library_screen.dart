@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/models/shared_models.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../library_style.dart';
@@ -8,6 +9,7 @@ import '../widgets/add_subject_dialog.dart';
 import '../widgets/subject_card.dart';
 import 'add_document_screen.dart';
 import 'subject_detail_screen.dart';
+import '../../../core/providers/active_context_provider.dart';
 
 /// SCR-02: Thư viện môn học. M1 chỉ cần đặt `LibraryScreen()` vào tab thứ 2.
 /// Màn hình tự tạo LibraryViewModel nên không cần sửa main.dart.
@@ -32,9 +34,28 @@ class _LibraryView extends StatefulWidget {
 
 class _LibraryViewState extends State<_LibraryView> {
   final TextEditingController _searchController = TextEditingController();
+  ActiveStudyContextProvider? _navProvider;
+  int _lastTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _navProvider = context.read<ActiveStudyContextProvider>();
+    _lastTabIndex = _navProvider!.currentTabIndex;
+    _navProvider!.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    final current = _navProvider?.currentTabIndex;
+    if (current == 1 && _lastTabIndex != 1 && mounted) {
+      context.read<LibraryViewModel>().loadSubjects(showLoading: false);
+    }
+    if (current != null) _lastTabIndex = current;
+  }
 
   @override
   void dispose() {
+    _navProvider?.removeListener(_onTabChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -49,11 +70,15 @@ class _LibraryViewState extends State<_LibraryView> {
       name: input.name,
       programmingLanguage: input.programmingLanguage,
     );
-    messenger.showSnackBar(SnackBar(
-      content: Text(ok
-          ? 'Đã thêm môn "${input.name}"'
-          : 'Không thể thêm môn học, hãy thử lại'),
-    ));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Đã thêm môn "${input.name}"'
+              : 'Không thể thêm môn học, hãy thử lại',
+        ),
+      ),
+    );
   }
 
   /// Nút "Tải tài liệu lên" mở SCR-04; quay lại thì làm mới số liệu.
@@ -86,7 +111,8 @@ class _LibraryViewState extends State<_LibraryView> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Xóa'),
           ),
@@ -96,11 +122,15 @@ class _LibraryViewState extends State<_LibraryView> {
     if (confirmed != true) return;
 
     final ok = await viewModel.deleteSubject(subject.id!);
-    messenger.showSnackBar(SnackBar(
-      content: Text(ok
-          ? 'Đã xóa môn "${subject.name}"'
-          : 'Không thể xóa môn học, hãy thử lại'),
-    ));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Đã xóa môn "${subject.name}"'
+              : 'Không thể xóa môn học, hãy thử lại',
+        ),
+      ),
+    );
   }
 
   Future<void> _openDetail(SubjectModel subject) async {
@@ -290,9 +320,9 @@ class _LibraryViewState extends State<_LibraryView> {
   }
 
   Widget _centered(Widget child) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: child,
-        ),
-      );
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: child,
+    ),
+  );
 }

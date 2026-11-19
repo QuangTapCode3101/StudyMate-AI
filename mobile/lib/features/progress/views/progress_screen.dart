@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/providers/active_context_provider.dart';
 import '../viewmodels/analytics_viewmodel.dart';
 import 'widgets/analytics_dashboard_tab.dart';
 import 'widgets/system_settings_modal.dart';
+
+import 'package:studymate_ai/features/flashcards/views/flashcard_decks_tab.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -13,7 +16,6 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  // 0: Bộ thẻ SM-2 (M4), 1: Phân tích năng lực (M1)
   int _selectedSubTab = 1;
   int _lastObservedMainTab = 0;
 
@@ -87,8 +89,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
             child: IndexedStack(
               index: _selectedSubTab,
               children: const [
-                // Ngăn 0: Chừa đúng 1 dòng cho M4 tự gắn Widget TASK-504 vào sau
-                Center(child: Text('Sub-tab 1: Bộ thẻ SM-2 (M4 phụ trách)')),
+                FlashcardDecksTab(),
+            
 
                 // Ngăn 1: Toàn bộ nội dung TASK-602 của M1
                 AnalyticsDashboardTab(),

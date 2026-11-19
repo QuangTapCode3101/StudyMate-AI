@@ -49,11 +49,20 @@ exports.extractTopicsFromChunks = async ({ subjectName, programmingLanguage, doc
     .join('\n\n---\n\n');
 
   const systemInstruction = `Bạn là chuyên gia phân tích tài liệu giảng dạy Công nghệ Thông tin.
-Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage || 'CNTT'}), bóc tách thành 3 đến 7 chủ đề kiến thức cốt lõi, mạch lạc.
-Yêu cầu:
-- Tên chủ đề ngắn gọn, chuẩn thuật ngữ chuyên ngành.
-- "keywords": trích xuất 3-6 từ khóa, tên hàm, class hoặc khái niệm kỹ thuật đặc trưng nhất trong đoạn đó.
-- "chunkIndices": mảng các số nguyên chunkIndex chứa nội dung của chủ đề đó (bắt buộc khớp với chunkIndex đầu vào).`;
+Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage}), bóc tách TOÀN BỘ các chủ đề kiến thức được nhắc đến trong tài liệu.
+
+Quy tắc bắt buộc (Quan trọng):
+1. KHÔNG ĐƯỢC GỘP CHỦ ĐỀ: Nếu tài liệu đã chia rõ các đề mục hoặc đánh số thứ tự (ví dụ: 01, 02, 03...), phải tách riêng từng đề mục thành một object độc lập. Bắt buộc trích xuất đủ 100% số lượng đề mục có trong tài liệu, không được bỏ sót hay tóm tắt gộp.
+2. Tên chủ đề ("topic"): Ngắn gọn, chuẩn thuật ngữ chuyên ngành, giữ sát ý nghĩa của đề mục gốc.
+3. Từ khóa ("keywords"): Mảng gồm 3-6 từ khóa, tên hàm, class hoặc khái niệm kỹ thuật đặc trưng nhất nằm trong phần nội dung của chủ đề đó.
+4. Chỉ mục đoạn ("chunkIndices"): Mảng các số nguyên chunkIndex chứa nội dung chi tiết của chủ đề đó (bắt buộc khớp với chunkIndex đầu vào).
+
+Định dạng đầu ra: Chỉ trả về duy nhất một mảng JSON hợp lệ (không kèm văn bản giải thích thừa hay markdown block nếu không cần thiết), cấu trúc mỗi phần tử:
+{
+  "topic": "string",
+  "keywords": ["string"],
+  "chunkIndices": [number]
+}`;
 
   const responseSchema = {
     type: Type.OBJECT,
@@ -130,7 +139,7 @@ exports.streamTutor = async ({
   const historyText =
     chatHistory.length > 0
       ? chatHistory
-          .slice(-6) // Lấy tối đa 6 tin nhắn gần nhất để tiết kiệm token
+          .slice(-6)
           .map((m) => `${m.role === 'USER' ? 'Sinh viên' : 'AI Tutor'}: ${m.content}`)
           .join('\n')
       : '';
@@ -162,7 +171,6 @@ QUY TẮC BẮT BUỘC:
     const chunkText = chunk.text || '';
     if (chunkText) {
       fullText += chunkText;
-      // Ẩn dòng [CITATIONS: ...] khỏi luồng hiển thị trực tiếp nếu nó bắt đầu xuất hiện ở cuối
       const cleanChunk = chunkText.replace(/\[CITATIONS:.*?\]/g, '');
       if (cleanChunk) {
         onChunk(cleanChunk);
@@ -170,7 +178,6 @@ QUY TẮC BẮT BUỘC:
     }
   }
 
-  // Bóc tách mảng citations từ thẻ [CITATIONS: ...] ở cuối văn bản
   const validLabels = new Set(sourceChunks.map((c) => c.pageLabel));
   const match = fullText.match(/\[CITATIONS:\s*(.*?)\]/i);
   let citations = [];
@@ -181,7 +188,7 @@ QUY TẮC BẮT BUỘC:
       .map((s) => s.trim())
       .filter((label) => validLabels.size === 0 || validLabels.has(label));
   }
-  // Fallback: Nếu AI quên gắn thẻ nhưng có sourceChunks truyền vào, trả về tối đa 2 nguồn đầu tiên để M3 luôn bấm xem được MDL-01
+
   if (citations.length === 0 && sourceChunks.length > 0) {
     citations = [...new Set(sourceChunks.slice(0, 2).map((c) => c.pageLabel))];
   }
@@ -268,7 +275,6 @@ QUY TẮC NGHIÊM NGẶT:
     });
 
     const parsed = JSON.parse(response.text);
-    // Hậu kiểm đảm bảo options luôn đủ 4 phần tử và correctIndex hợp lệ
     parsed.questions = (parsed.questions || []).map((q) => ({
       ...q,
       codeSnippet: q.codeSnippet || null,
@@ -279,18 +285,60 @@ QUY TẮC NGHIÊM NGẶT:
   });
 };
 
-exports.generateMiniQuizFromTutor = async ({ programmingLanguage = 'Dart', topicId = 1, tutorAnswer }) => {
-  return exports.generateQuiz({
-    programmingLanguage,
-    difficulty: 'EASY',
-    questionCount: 3, // Đúng 3 câu theo đặc tả SUB-204.3 & MDL-02
-    questionTypes: ['CONCEPT', 'PREDICT_OUTPUT'],
-    topics: [
-      {
-        topicId,
-        topicName: 'Kiểm tra nhanh nội dung vừa học',
-        referenceContent: tutorAnswer,
+exports.generateMiniQuizFromTutor = async ({
+  programmingLanguage = 'Dart',
+  topicId = 1,
+  topicName = 'Kiểm tra nhanh nội dung vừa học',
+  userQuestion = '',
+  tutorAnswer,
+}) => {
+  const safeTopicId = Number(topicId) || 1;
+  const trimmedContext = String(tutorAnswer || '').slice(0, 3500);
+  const trimmedUserQuestion = String(userQuestion || '').slice(0, 500);
+
+  const systemInstruction = `Bạn là giảng viên ra đề kiểm tra nhanh (Mini-Quiz) dựa trực tiếp trên cuộc hội thoại vừa diễn ra giữa sinh viên và Gia sư AI về ngôn ngữ ${programmingLanguage}.
+Hãy tạo chính xác 3 câu hỏi trắc nghiệm ngắn gọn, thực tế để kiểm tra xem sinh viên đã thực sự hiểu phần giải thích vừa rồi hay chưa.
+
+QUY TẮC NGHIÊM NGẶT:
+1. BÁM SÁT NGỮ CẢNH: Toàn bộ 3 câu hỏi phải xuất phát trực tiếp từ kiến thức, ví dụ, hoặc lỗi sai đã được đề cập trong phần trả lời của Gia sư AI. Tuyệt đối KHÔNG hỏi lan man sang các chủ đề ngoài nội dung vừa chat.
+2. Mỗi câu hỏi phải gán "topicId": ${safeTopicId}.
+3. Dạng câu hỏi: Ưu tiên "CONCEPT" (kiểm tra hiểu bản chất/khái niệm vừa giải thích). Chỉ dùng "PREDICT_OUTPUT" hoặc "SPOT_BUG" nếu trong phần giải thích của Gia sư AI có chứa đoạn code hoặc ví dụ lập trình cụ thể.
+4. Với dạng "SPOT_BUG" và "PREDICT_OUTPUT":
+   - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
+   - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
+5. "options" phải có ĐÚNG 4 phần tử phân biệt rõ ràng; các phương án nhiễu phải hợp lý dựa trên những nhầm lẫn phổ biến liên quan đến nội dung vừa học.
+6. "correctIndex" nằm trong khoảng 0..3.
+7. "explanation" giải thích ngắn gọn (1-2 câu), nhắc lại đúng trọng tâm kiến thức trong câu trả lời của Gia sư AI.`;
+
+  const chatContextPrompt = [
+    `Chủ đề: "${topicName}" (topicId: ${safeTopicId})`,
+    trimmedUserQuestion ? `Câu hỏi của sinh viên:\n"${trimmedUserQuestion}"` : null,
+    `Nội dung giải thích của Gia sư AI:\n"""\n${trimmedContext}\n"""`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  return executeWithKeyFallback(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: chatContextPrompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: quizResponseSchema,
+        temperature: 0.25, // Giữ temperature thấp để AI bám chặt vào nội dung vừa chat, tránh bịa thêm kiến thức ngoài
       },
-    ],
+    });
+
+    const parsed = JSON.parse(response.text);
+    const questions = (parsed.questions || []).slice(0, 3).map((q) => ({
+      ...q,
+      topicId: safeTopicId,
+      codeSnippet: q.codeSnippet || null,
+      options: (q.options || []).slice(0, 4),
+      correctIndex: Math.min(3, Math.max(0, Number(q.correctIndex) || 0)),
+    }));
+
+    return { questions };
   });
 };

@@ -45,7 +45,7 @@ class DocumentApiService {
 
   /// true: gửi header X-Mock-Mode để máy chủ trả dữ liệu mẫu.
   /// Đổi thành false khi M5 tích hợp xong Gemini thật.
-  static const bool useMockAi = true;
+  static const bool useMockAi = false;
 
   /// Ném [ApiException] (từ ApiClient) với các mã như INVALID_INPUT,
   /// DAILY_QUOTA_EXCEEDED, RATE_LIMIT_EXCEEDED, TIMEOUT, NETWORK_ERROR.
