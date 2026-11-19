@@ -24,9 +24,14 @@ class HomeViewModel extends ChangeNotifier {
   String get displayName => _displayName;
   String get timeGreeting => UserPrefsService.getTimeGreeting();
   
-  Future<void> loadDashboard() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> loadDashboard({
+    bool showLoading = true,
+    bool checkQuota = true,
+  }) async {
+    if (showLoading) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     try {
       // Đọc đồng thời SQLite và SharedPreferences để tránh rebuild 2 lần
@@ -43,7 +48,9 @@ class HomeViewModel extends ChangeNotifier {
       notifyListeners();
     }
 
-    await refreshQuotaStatus();
+    if (checkQuota) {
+      await refreshQuotaStatus();
+    }
   }
 
   Future<void> updateDisplayName(String newName) async {

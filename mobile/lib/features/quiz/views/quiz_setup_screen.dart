@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/models/shared_models.dart';
 import '../../../core/providers/active_context_provider.dart';
 import '../../../core/widgets/app_button.dart';
@@ -23,9 +24,9 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final activeContext = context.read<ActiveStudyContextProvider>();
       context.read<QuizViewModel>().initSetup(
-            preferredSubjectId: activeContext.activeSubjectId,
-            preferredTopicId: activeContext.activeTopicId,
-          );
+        preferredSubjectId: activeContext.activeSubjectId,
+        preferredTopicId: activeContext.activeTopicId,
+      );
     });
   }
 
@@ -63,7 +64,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                          color: const Color(0xFF2563EB)
+                              .withValues(alpha: 0.25),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -80,7 +82,11 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.bolt, color: Colors.white, size: 24),
+                              child: const Icon(
+                                Icons.bolt,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             const Expanded(
@@ -111,14 +117,15 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                   const SizedBox(height: 24),
 
                   // 1. CHỌN MÔN HỌC & CHỦ ĐỀ
-                  const SectionHeader(
-                    title: '1. Chọn môn học & Chủ đề',
-                  ),
+                  const SectionHeader(title: '1. Chọn môn học & Chủ đề'),
                   const SizedBox(height: 12),
 
                   // Dropdown chọn môn
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -134,7 +141,11 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                             value: sub,
                             child: Row(
                               children: [
-                                const Icon(Icons.menu_book, color: Color(0xFF2563EB), size: 20),
+                                const Icon(
+                                  Icons.menu_book,
+                                  color: Color(0xFF2563EB),
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
@@ -195,15 +206,20 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                           label: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                top.name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight:
-                                      isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF0F172A),
+                              Flexible(
+                                child: Text(
+                                  top.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? const Color(0xFF2563EB)
+                                        : const Color(0xFF0F172A),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -218,9 +234,7 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                   const SizedBox(height: 24),
 
                   // 2. CẤU HÌNH ĐỀ THI
-                  const SectionHeader(
-                    title: '2. Cấu hình bài thi',
-                  ),
+                  const SectionHeader(title: '2. Cấu hình bài thi'),
                   const SizedBox(height: 12),
 
                   // Số lượng câu hỏi
@@ -241,7 +255,9 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                         onSelected: (_) => vm.setQuestionCount(5),
                         selectedColor: const Color(0xFF2563EB),
                         labelStyle: TextStyle(
-                          color: vm.questionCount == 5 ? Colors.white : const Color(0xFF0F172A),
+                          color: vm.questionCount == 5
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -252,7 +268,9 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                         onSelected: (_) => vm.setQuestionCount(10),
                         selectedColor: const Color(0xFF2563EB),
                         labelStyle: TextStyle(
-                          color: vm.questionCount == 10 ? Colors.white : const Color(0xFF0F172A),
+                          color: vm.questionCount == 10
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -284,8 +302,11 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                       ),
                       FilterChip(
                         label: const Text('⚡ Dự đoán kết quả (Output)'),
-                        selected: vm.selectedQuestionTypes.contains('PREDICT_OUTPUT'),
-                        onSelected: (_) => vm.toggleQuestionType('PREDICT_OUTPUT'),
+                        selected: vm.selectedQuestionTypes.contains(
+                          'PREDICT_OUTPUT',
+                        ),
+                        onSelected: (_) =>
+                            vm.toggleQuestionType('PREDICT_OUTPUT'),
                         selectedColor: const Color(0xFFEDE9FE),
                         checkmarkColor: const Color(0xFF7C3AED),
                       ),
@@ -345,12 +366,19 @@ class _QuizSetupScreenState extends State<QuizSetupScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               vm.errorMessage!,
-                              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],

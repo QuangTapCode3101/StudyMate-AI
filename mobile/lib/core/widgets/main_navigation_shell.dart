@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:studymate_ai/features/dashboard/viewmodels/home_viewmodel.dart';
+import 'package:studymate_ai/features/progress/viewmodels/analytics_viewmodel.dart';
+
 import '../../features/library/screens/library_screen.dart';
 import '../../features/progress/views/progress_screen.dart';
 import '../../features/dashboard/views/home_screen.dart';
@@ -24,13 +27,26 @@ class MainNavigationShell extends StatelessWidget {
     final navProvider = context.watch<ActiveStudyContextProvider>();
 
     return Scaffold(
-      body: IndexedStack(
-        index: navProvider.currentTabIndex,
-        children: _tabs,
-      ),
+      body: IndexedStack(index: navProvider.currentTabIndex, children: _tabs),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navProvider.currentTabIndex,
-        onDestinationSelected: navProvider.setTabIndex,
+        onDestinationSelected: (index) {
+          navProvider.setTabIndex(index);
+
+          if (index == 0) {
+            context.read<HomeViewModel>().loadDashboard(
+              showLoading: false,
+              checkQuota: false,
+            );
+          } 
+          else if (index == 4) {
+            final analyticsVm = context.read<AnalyticsViewModel>();
+            analyticsVm.loadAnalytics(
+              subjectId: analyticsVm.selectedSubjectId,
+              showLoading: false,
+            );
+          }
+        },
         backgroundColor: Colors.white,
         indicatorColor: const Color(0xFFEFF6FF),
         destinations: const [
