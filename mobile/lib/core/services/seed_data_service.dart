@@ -33,7 +33,7 @@ class SeedDataService {
       });
 
       // 3. Đọc file JSON từ assets
-      final String jsonString = await rootBundle.loadString('assets/seed/flutter_300.json');
+      final String jsonString = await rootBundle.loadString('assets/seed/flutter_300_questions.json');
       final List<dynamic> questionsData = jsonDecode(jsonString);
 
       // 4. Batch Insert 300 câu hỏi siêu tốc

@@ -49,7 +49,7 @@ exports.extractTopicsFromChunks = async ({ subjectName, programmingLanguage, doc
     .join('\n\n---\n\n');
 
   const systemInstruction = `Bạn là chuyên gia phân tích tài liệu giảng dạy Công nghệ Thông tin.
-Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage || 'CNTT'}), bóc tách thành 3 đến 7 chủ đề kiến thức cốt lõi, mạch lạc.
+Nhiệm vụ: Đọc các đoạn trích tài liệu của môn "${subjectName}" (ngôn ngữ: ${programmingLanguage || 'CNTT'}), bóc tách tất cả chủ đề kiến thức được nhắc đến trong tài liệu mạch lạc, rõ ràng.
 Yêu cầu:
 - Tên chủ đề ngắn gọn, chuẩn thuật ngữ chuyên ngành.
 - "keywords": trích xuất 3-6 từ khóa, tên hàm, class hoặc khái niệm kỹ thuật đặc trưng nhất trong đoạn đó.
@@ -162,7 +162,6 @@ QUY TẮC BẮT BUỘC:
     const chunkText = chunk.text || '';
     if (chunkText) {
       fullText += chunkText;
-      // Ẩn dòng [CITATIONS: ...] khỏi luồng hiển thị trực tiếp nếu nó bắt đầu xuất hiện ở cuối
       const cleanChunk = chunkText.replace(/\[CITATIONS:.*?\]/g, '');
       if (cleanChunk) {
         onChunk(cleanChunk);
@@ -170,7 +169,6 @@ QUY TẮC BẮT BUỘC:
     }
   }
 
-  // Bóc tách mảng citations từ thẻ [CITATIONS: ...] ở cuối văn bản
   const validLabels = new Set(sourceChunks.map((c) => c.pageLabel));
   const match = fullText.match(/\[CITATIONS:\s*(.*?)\]/i);
   let citations = [];
@@ -181,7 +179,7 @@ QUY TẮC BẮT BUỘC:
       .map((s) => s.trim())
       .filter((label) => validLabels.size === 0 || validLabels.has(label));
   }
-  // Fallback: Nếu AI quên gắn thẻ nhưng có sourceChunks truyền vào, trả về tối đa 2 nguồn đầu tiên để M3 luôn bấm xem được MDL-01
+
   if (citations.length === 0 && sourceChunks.length > 0) {
     citations = [...new Set(sourceChunks.slice(0, 2).map((c) => c.pageLabel))];
   }
@@ -279,18 +277,33 @@ QUY TẮC NGHIÊM NGẶT:
   });
 };
 
-exports.generateMiniQuizFromTutor = async ({ programmingLanguage = 'Dart', topicId = 1, tutorAnswer }) => {
-  return exports.generateQuiz({
+exports.generateMiniQuizFromTutor = async ({
+  programmingLanguage = 'Dart',
+  topicId = 1,
+  topicName = 'Kiểm tra nhanh nội dung vừa học',
+  tutorAnswer,
+}) => {
+  const safeTopicId = Number(topicId) || 1;
+  const trimmedContext = String(tutorAnswer).slice(0, 3500);
+
+  const result = await exports.generateQuiz({
     programmingLanguage,
     difficulty: 'EASY',
-    questionCount: 3, // Đúng 3 câu theo đặc tả SUB-204.3 & MDL-02
+    questionCount: 3, 
     questionTypes: ['CONCEPT', 'PREDICT_OUTPUT'],
     topics: [
       {
-        topicId,
-        topicName: 'Kiểm tra nhanh nội dung vừa học',
-        referenceContent: tutorAnswer,
+        topicId: safeTopicId,
+        topicName,
+        referenceContent: `Dựa trực tiếp vào nội dung giải thích của Gia sư AI dưới đây để đặt 3 câu hỏi kiểm tra mức độ hiểu bài của sinh viên:\n\n${trimmedContext}`,
       },
     ],
   });
+
+  const questions = (result.questions || []).slice(0, 3).map((q) => ({
+    ...q,
+    topicId: safeTopicId,
+  }));
+
+  return { questions };
 };

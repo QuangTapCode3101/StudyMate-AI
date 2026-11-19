@@ -213,8 +213,16 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
  */
 exports.generateMiniQuiz = async (req, res, next) => {
   try {
-    const { programmingLanguage, topicId, tutorAnswer, content } = req.body;
-    const referenceText = tutorAnswer || content;
+    const {
+      programmingLanguage = 'Dart',
+      topicId,
+      topicName,
+      tutorAnswer,
+      content,
+    } = req.body;
+
+    const referenceText = (tutorAnswer || content || '').toString().trim();
+    const parsedTopicId = Number(topicId) || 1;
 
     if (isMockEnabled(req)) {
       return res.status(200).json({
@@ -223,7 +231,7 @@ exports.generateMiniQuiz = async (req, res, next) => {
         data: {
           questions: [
             {
-              topicId: topicId || 1,
+              topicId: parsedTopicId,
               questionType: 'CONCEPT',
               questionText: 'Khi chỉ muốn gọi phương thức trong onPressed mà không cần rebuild Widget, ta dùng hàm nào?',
               codeSnippet: 'context.____<Counter>().increment();',
@@ -232,7 +240,7 @@ exports.generateMiniQuiz = async (req, res, next) => {
               explanation: 'context.read<T>() chỉ đọc đối tượng từ Provider 1 lần mà không đăng ký lắng nghe thay đổi.',
             },
             {
-              topicId: topicId || 1,
+              topicId: parsedTopicId,
               questionType: 'CONCEPT',
               questionText: 'Hàm nào dưới đây sẽ đăng ký lắng nghe thay đổi và tự động gọi lại build() khi state cập nhật?',
               codeSnippet: null,
@@ -241,7 +249,7 @@ exports.generateMiniQuiz = async (req, res, next) => {
               explanation: 'context.watch<T>() tương đương Provider.of<T>(context, listen: true), dùng trong hàm build().',
             },
             {
-              topicId: topicId || 1,
+              topicId: parsedTopicId,
               questionType: 'PREDICT_OUTPUT',
               questionText: 'Điều gì xảy ra nếu gọi context.watch<Counter>() bên trong hàm initState()?',
               codeSnippet: '1  @override\n2  void initState() {\n3    super.initState();\n4    final c = context.watch<Counter>();\n5  }',
@@ -262,13 +270,17 @@ exports.generateMiniQuiz = async (req, res, next) => {
     if (!referenceText) {
       return res.status(400).json({
         success: false,
-        error: { code: 'INVALID_INPUT', message: 'Thiếu nội dung câu trả lời AI Tutor (tutorAnswer) để sinh Mini-Quiz.' },
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Thiếu nội dung câu trả lời AI Tutor (tutorAnswer) để sinh Mini-Quiz.',
+        },
       });
     }
 
     const result = await geminiService.generateMiniQuizFromTutor({
       programmingLanguage,
-      topicId,
+      topicId: parsedTopicId,
+      topicName,
       tutorAnswer: referenceText,
     });
 
