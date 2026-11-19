@@ -1,0 +1,82 @@
+{
+  "subjectName": "Lập trình Flutter",
+  "programmingLanguage": "Dart",
+  "documentTitle": "Flutter and Dart_2.pdf",
+  "chunks": [
+    {
+      "chunkIndex": 1,
+      "pageLabel": "Trang 1",
+      "content": "studeersnel\nHoc nhanh Flutter Dart 300 cau\nTrường Đại học Phenikaa (Trường Đại học Phenikaa)\nScan to open on Studeersnel\nDownloaded by Hi?u Giáp (giaphieu2006@gmail.com)\nStudocu is not sponsored or endorsed by any college or university"
+    },
+    {
+      "chunkIndex": 2,
+      "pageLabel": "Trang 2",
+      "content": "FLUTTER VÀ DART / HỌC NHANH TỪ 300 CÂU HỎI\nHọc nhanh Flutter và Dart - Kiến thức trọng tâm từ bộ 300 câu hỏi. Cách học trong 60 phút và Mục lục 20 chủ đề: 01 Dart căn bản và bất đồng bộ, 02 Công cụ và môi trường phát triển, 03 Widget vòng đời và kiến trúc Flutter, 04 Bố cục và danh sách cuộn, 05 Material theme phông chữ và vẽ, 06 Giao diện thích ứng, 07 Tương tác nhập liệu và biểu mẫu, 08 Tài nguyên hình ảnh và video, 09 Điều hướng và liên kết sâu, 10 Hoạt ảnh, 11 Trợ năng và bản địa hóa, 12 Quản lý trạng thái, 13 Mạng JSON lưu trữ và Firebase, 14 Kiến trúc ứng dụng, 15 Package plugin và phiên bản, 16 Kiểm thử và xử lý lỗi, 17 Hiệu năng, 18 Web và tương tác nền tảng, 19 Cấu hình bảo mật và phát hành, 20 Flutter và AI. Bốn nguyên tắc xuyên suốt: UI = f(state); Constraints đi xuống, kích thước đi lên, cha đặt vị trí; build có thể chạy nhiều lần; async không đồng nghĩa chạy song song."
+    },
+    {
+      "chunkIndex": 3,
+      "pageLabel": "Trang 3",
+      "content": "01 Dart căn bản và bất đồng bộ (Đối chiếu câu 1-20): final, const, late (LateInitializationError), Future và Stream. Null safety (T?, a?.x, a ?? b, a ??= b, a!). Tham số vị trí tùy chọn [] và đặt tên {} (required). Kế thừa (extends, with, override, super). Record (p.$1, p.$2). Switch expression đầy đủ nhánh. Dot shorthand cần kiểu ngữ cảnh. Đọc thứ tự chạy mã bất đồng bộ: async chạy đồng bộ tới await đầu tiên, không tạo isolate mới; Future.delayed(Duration.zero, ...); duyệt Stream bằng await for."
+    },
+    {
+      "chunkIndex": 4,
+      "pageLabel": "Trang 4",
+      "content": "02 Công cụ và môi trường phát triển (Câu 21-42): flutter doctor (-v, --android-licenses), flutter pub get, dart format, flutter analyze, dart fix (--dry-run/--apply), flutter run, flutter build apk. Cài SDK và PATH; VS Code extension; Hot reload (giữ state, không chạy lại main/initState) vs Hot restart (mất state, chạy lại Dart); sửa native cần chạy lại toàn bộ. DevTools: Inspector, Network, Performance, Memory, Property Editor, Widget Previewer.\n03 Widget vòng đời và kiến trúc Flutter (Câu 43-67): Widget bất biến, Element giữ vị trí/liên kết, RenderObject layout và paint. StatelessWidget vs StatefulWidget (createState, initState, didChangeDependencies, didUpdateWidget, dispose). BuildContext tìm tổ tiên; setState báo rebuild. Kiến trúc: Framework (Dart), Engine (C++), Embedder, bộ kết xuất Impeller. Các chế độ chạy: debug, profile, release (bỏ assert)."
+    },
+    {
+      "chunkIndex": 5,
+      "pageLabel": "Trang 5",
+      "content": "04 Bố cục và danh sách cuộn (Câu 68-82): Constraints đi xuống, kích thước đi lên, cha đặt vị trí; tight vs unbounded constraints. Row và Column (mainAxisAlignment, crossAxisAlignment, mainAxisSize). Expanded (FlexFit.tight) vs Flexible (FlexFit.loose). Xử lý tràn Text trong Row và ListView trong Column. Stack, Positioned, Align, Container vs BoxDecoration. ListView.builder, ListView.separated, GridView.count, MaxCrossAxisExtent. Nhóm Sliver: CustomScrollView, SliverToBoxAdapter, SliverPadding, SliverAppBar (pinned, floating, snap), Parallax với FlowDelegate."
+    },
+    {
+      "chunkIndex": 6,
+      "pageLabel": "Trang 6",
+      "content": "05 Material theme phông chữ và vẽ (Câu 83-100): MaterialApp, Scaffold, Material, CupertinoApp, CupertinoPageScaffold. Context chỉ tìm tổ tiên (dùng Builder nếu cần). Material 3 mặc định, ColorScheme.fromSeed, Theme.of(context).colorScheme, themeMode (light, dark, system). Khai báo font trong pubspec.yaml, TextTheme.displayLarge, google_fonts offline. CustomPainter (paint, shouldRepaint). Fragment shader (FragmentProgram.fromAsset, setFloat).\n06 Giao diện thích ứng (Câu 101-115): MediaQuery.sizeOf(context) vs LayoutBuilder. Chọn layout theo không gian khả dụng thay vì nhãn thiết bị. SafeArea, maxWidth, mốc 600px cho NavigationRail thay NavigationBar. Widget thích ứng nền tảng: Switch.adaptive, CircularProgressIndicator.adaptive."
+    },
+    {
+      "chunkIndex": 7,
+      "pageLabel": "Trang 7",
+      "content": "07 Tương tác nhập liệu và biểu mẫu (Câu 116-133): GestureDetector, InkWell (cần Material tổ tiên), Dismissible (key duy nhất, cập nhật dữ liệu trong onDismissed), Draggable và DragTarget. TextField với TextEditingController và FocusNode (tạo trong initState, hủy trong dispose), onChanged vs controller listener, onSubmitted. Form với GlobalKey<FormState>, validator (trả null nếu hợp lệ), validate(), save(), reset(). SnackBar qua ScaffoldMessenger. Shortcuts và Actions.\n08 Tài nguyên hình ảnh và video (Câu 134-142): Khai báo assets trong pubspec.yaml, biến thể mật độ ảnh (images/3.0x/icon.png), FadeInImage, Asset transformer chạy lúc build. Video mạng với VideoPlayerController.networkUrl, initialize(), play(), pause(), dispose()."
+    },
+    {
+      "chunkIndex": 8,
+      "pageLabel": "Trang 8",
+      "content": "09 Điều hướng và liên kết sâu (Câu 143-162): Navigator.push, pop, pushReplacement. Truyền dữ liệu qua constructor, nhận kết quả khi await push, kiểm tra context.mounted sau await. MaterialPageRoute, Router và go_router (page-backed vs pageless route), hạn chế của named routes. DefaultTabController, TabBar, TabBarView, Drawer, showCupertinoSheet. Deep linking: App Links Android (assetlinks.json), Universal Links iOS (apple-app-site-association). Flutter web hash URL vs path URL (usePathUrlStrategy).\n10 Hoạt ảnh (Câu 163-171): Implicit (AnimatedOpacity, AnimatedContainer, Curve) vs Explicit (AnimationController, SingleTickerProviderStateMixin, TickerProviderStateMixin). Hero ghép bằng tag. PageRouteBuilder, SlideTransition. animateWith(SpringSimulation), animateTo. Staggered animation với Tween và Interval (tỉ lệ 0 đến 1)."
+    },
+    {
+      "chunkIndex": 9,
+      "pageLabel": "Trang 9",
+      "content": "11 Trợ năng và bản địa hóa (Câu 172-180): Semantics cho TalkBack và VoiceOver, tooltip, phóng chữ hệ thống, ngưỡng vùng chạm (Android 48x48, iOS 44x44). Widget test trợ năng: ensureSemantics, meetsGuideline, androidTapTargetGuideline, labeledTapTargetGuideline, textContrastGuideline. Bản địa hóa với gen-l10n, tệp .arb, AppLocalizations.delegate, GlobalMaterialLocalizations.delegates, supportedLocales.\n12 Quản lý trạng thái (Câu 181-200): Ephemeral state vs App state. setState đánh dấu rebuild. ChangeNotifier và notifyListeners(), ListenableBuilder, InheritedWidget. ValueNotifier và ValueListenableBuilder (phải gán List mới thay vì mutate tại chỗ). Provider: context.watch<T>(), context.read<T>(), Consumer.child, ChangeNotifierProvider. Nhắc tới Riverpod, BLoC."
+    },
+    {
+      "chunkIndex": 10,
+      "pageLabel": "Trang 10",
+      "content": "13 Mạng JSON lưu trữ và Firebase (Câu 201-223): REST HTTP (GET, POST, PUT), kiểm tra statusCode, header Authorization: Bearer. FutureBuilder (lưu Future ngoài build). WebSocketChannel (stream, sink, StreamBuilder). JSON: jsonDecode, fromJson/toJson, json_annotation, json_serializable, build_runner (explicitToJson). Xử lý CPU nặng với compute / Isolate.run. Lưu trữ cục bộ: shared_preferences, SQLite (sqflite, ConflictAlgorithm.replace, onCreate, onUpgrade), getApplicationDocumentsDirectory. Firebase: flutterfire configure, Firebase.initializeApp, Cloud Firestore, bảo mật service account qua backend."
+    },
+    {
+      "chunkIndex": 11,
+      "pageLabel": "Trang 11",
+      "content": "14 Kiến trúc ứng dụng (Câu 224-235): Tách UI layer (View, ViewModel) và Data layer (Repository, Service), tầng Domain/use-case tùy chọn. Luồng dữ liệu một chiều: View -> ViewModel -> Repository -> Service. Tiêm phụ thuộc (DI) qua constructor và Provider/MultiProvider. Optimistic state, Result<T> (Ok/Error), Command pattern với guard _running.\n15 Package plugin và phiên bản (Câu 236-244): Package thuần Dart vs Plugin tích hợp native (MethodChannel). dependencies vs dev_dependencies, pubspec.lock, pub get vs pub upgrade. Cú pháp phiên bản Caret (^1.2.3, ^0.4.2), dependency_overrides. Tạo package/plugin bằng flutter create --template, kiểm tra trước khi đăng với flutter pub publish --dry-run, Flutter Favorite, CocoaPods và SwiftPM."
+    },
+    {
+      "chunkIndex": 12,
+      "pageLabel": "Trang 12",
+      "content": "16 Kiểm thử và xử lý lỗi (Câu 245-264): Unit test, Widget test, Integration test. group(), expect(), matcher. Mockito (@GenerateMocks, build_runner, thenAnswer cho Future/Stream). tester.pumpWidget, tap, drag, enterText, pump(), pumpAndSettle(). Finder: findsOneWidget, findsWidgets, findsNothing, find.byKey. IntegrationTestWidgetsFlutterBinding. Bắt lỗi toàn cục: FlutterError.onError và PlatformDispatcher.instance.onError; kiểm tra mounted sau async.\n17 Hiệu năng (Câu 265-272): Đo hiệu năng bằng profile mode trên thiết bị thật, ngân sách 16.7ms/khung hình (60 fps). Phân tích UI thread vs Raster thread qua CPU profiler/timeline, Impeller. Tối ưu rebuild với child trong AnimatedBuilder, RepaintBoundary. Phân tích dung lượng với --analyze-size và DevTools App Size, icon tree shaking. Dùng compute/Isolate.run cho tác vụ nặng."
+    },
+    {
+      "chunkIndex": 13,
+      "pageLabel": "Trang 13",
+      "content": "18 Web và tương tác nền tảng (Câu 273-280): flutter build web --wasm, dart:js_interop và package:web. Kiểm tra kIsWeb trước khi dùng dart:io Platform, defaultTargetPlatform. Pigeon sinh mã type-safe, MethodChannel, EventChannel, PlatformException vs MissingPluginException. Tương tác C/native qua dart:ffi, FFIgen và Java/Kotlin qua JNIgen. Add-to-app với FlutterEngine, FlutterEngineGroup và FlutterEngineCache.\n19 Cấu hình bảo mật và phát hành (Câu 281-292): --dart-define, --dart-define-from-file, String.fromEnvironment, --flavor. Không lưu khóa bí mật trong app client. Obfuscation với --obfuscate --split-debug-info và flutter symbolize. Build phát hành: flutter build appbundle (AAB), flutter build ipa, đánh số version (1.2.0+5). Ký ứng dụng Android với upload key (signingConfigs, key.properties). Tự động hóa CI/CD với fastlane."
+    },
+    {
+      "chunkIndex": 14,
+      "pageLabel": "Trang 14",
+      "content": "20 Flutter và AI (Câu 293-300): Phân biệt Agent rule, Agent skill, Dart and Flutter MCP server, Package skill, Developer Knowledge MCP, Genkit Dart, Flutter AI Toolkit, GenUI Catalog. Sự khác biệt giữa Ask và Agent nằm ở công cụ được cấp. Bảo mật khóa model bằng Firebase AI Logic hoặc backend. Đồng bộ lịch sử chat hai chiều trong custom LlmProvider với notifyListeners và LlmChatView. Kiểm chứng nội dung đầu ra JSON có cấu trúc (Structured output) bằng mã và xác nhận của người dùng."
+    },
+    {
+      "chunkIndex": 15,
+      "pageLabel": "Trang 15",
+      "content": "Tự kiểm tra trước khi thi (20 câu hỏi ôn tập nhanh kèm đáp án ngắn tổng hợp các quy tắc cốt lõi về final List, null safety, Hot reload, layout constraints, ListView trong Column, LayoutBuilder, Form validator, TextEditingController, Navigator.pushReplacement, Hero & Interval, vùng chạm trợ năng, ValueNotifier, HTTP 404, Repository, cú pháp phiên bản ^, tester.pump, RepaintBoundary, async/compute trên web, flavor vs dart-define, và structured output)."
+    }
+  ]
+}

@@ -181,7 +181,7 @@ class DatabaseHelper {
       // 3. Tạo tài liệu mẫu
       final docId = await txn.insert('documents', {
         'subject_id': subjectId,
-        'title': 'Slide_StateManagement.pdf',
+        'title': 'Tài liệu flutter.pdf',
         'doc_type': 'PDF',
         'total_chunks': 2,
         'created_at': now,
@@ -191,7 +191,7 @@ class DatabaseHelper {
         'document_id': docId,
         'chunk_index': 1,
         'page_label': 'Trang 12',
-        'content': 'Consumer và context.watch<T>()... (đoạn text trích dẫn)',
+        'content': 'Đây là tài liệu flutter mẫu... (đoạn text trích dẫn)',
       });
 
       // 4. Khởi tạo 20 Chủ đề (Topic) để hứng 300 câu hỏi
