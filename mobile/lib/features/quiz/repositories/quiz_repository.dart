@@ -94,6 +94,7 @@ class QuizRepository implements IQuizRepository {
       final response = QuizGenerateResponse.fromJson(jsonResponse);
 
       // Lưu các câu hỏi vừa nhận được vào SQLite nếu chưa có
+      final syncedQuestions = <QuestionModel>[];
       if (response.questions.isNotEmpty) {
         final db = await _dbHelper.database;
         for (final q in response.questions) {
@@ -101,14 +102,28 @@ class QuizRepository implements IQuizRepository {
             'questions',
             where: 'topic_id = ? AND question_text = ?',
             whereArgs: [q.topicId, q.questionText],
+            limit: 1,
           );
+
+          int realQuestionId;
           if (existing.isEmpty) {
-            await db.insert('questions', q.toMap());
+            realQuestionId = await db.insert('questions', q.toMap());
+          } else {
+            realQuestionId = existing.first['id'] as int;
           }
+
+          // Tạo lại QuestionModel có gắn kèm id từ SQLite
+          final mapWithId = Map<String, dynamic>.from(q.toMap())..['id'] = realQuestionId;
+          syncedQuestions.add(QuestionModel.fromMap(mapWithId));
         }
       }
 
-      return response;
+      return QuizGenerateResponse(
+        success: response.success,
+        quota: response.quota,
+        questions: syncedQuestions,
+      );
+
     } catch (_) {
       // Fallback: Khi offline hoặc backend chưa chạy, đọc câu hỏi từ SQLite
       final fallbackQuestions = <QuestionModel>[];
@@ -141,11 +156,16 @@ class QuizRepository implements IQuizRepository {
     final db = await _dbHelper.database;
     final now = DateTime.now().toIso8601String();
 
+    // Chuẩn hóa điểm thang 100 đồng nhất với công thức của mastery_score
+    final int normalizedScore = totalQuestions > 0
+        ? ((correctCount / totalQuestions) * 100).round()
+        : score;
+
     return await db.transaction((txn) async {
       // 1. Lưu bản ghi lượt thi vào quiz_attempts
       final attemptId = await txn.insert('quiz_attempts', {
         'subject_id': subjectId,
-        'score': score,
+        'score': normalizedScore,
         'total_questions': totalQuestions,
         'correct_count': correctCount,
         'duration_seconds': durationSeconds,
@@ -154,9 +174,12 @@ class QuizRepository implements IQuizRepository {
 
       // 2. Lưu từng câu trả lời vào attempt_answers
       for (final ans in answers) {
+        final qId = ans['question_id'];
+        if (qId == null) continue; // Bỏ qua nếu câu hỏi chưa có ID trong SQLite
+
         await txn.insert('attempt_answers', {
           'attempt_id': attemptId,
-          'question_id': ans['question_id'],
+          'question_id': qId,
           'selected_index': ans['selected_index'],
           'is_correct': ans['is_correct'],
         });

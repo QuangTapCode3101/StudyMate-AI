@@ -13,7 +13,7 @@ class SeedDataService {
 
       final now = DateTime.now().toIso8601String();
 
-      // 2. Nạp Subject và Topic mồi
+      // 2. Nạp Subject và Topic.
       await db.insert('subjects', {
         'id': 1,
         'name': 'Lập trình Flutter (INT1449)',
@@ -23,12 +23,13 @@ class SeedDataService {
 
       // 3. Đọc và giải mã file JSON
       final String jsonString = await rootBundle.loadString(
-        'assets/seed/flutter_300_questions_2.json', // Đã cập nhật tên file mới
+        'assets/seed/flutter_300_questions_2.json',
       );
       final Map<String, dynamic> rootData = jsonDecode(jsonString);
 
       final List<dynamic> topicsData = rootData['topics'] ?? [];
       final List<dynamic> questionsData = rootData['questions'] ?? [];
+      
       // 4. Batch Insert toàn bộ 20 Topics từ JSON
       Batch batch = db.batch();
 
