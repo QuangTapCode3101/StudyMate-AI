@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+
 import '../../../core/database/database_helper.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/user_prefs_service.dart';
 import '../models/dashboard_data_model.dart';
 import '../repositories/dashboard_repository.dart';
 
@@ -12,27 +14,42 @@ class HomeViewModel extends ChangeNotifier {
   int _remainingQuota = 20;
   int _maxQuota = 20;
   bool _isBackendOnline = false;
+  String _displayName = '';
 
   DashboardSummaryData? get summary => _summary;
   bool get isLoading => _isLoading;
   int get remainingQuota => _remainingQuota;
   int get maxQuota => _maxQuota;
   bool get isBackendOnline => _isBackendOnline;
-
+  String get displayName => _displayName;
+  String get timeGreeting => UserPrefsService.getTimeGreeting();
+  
   Future<void> loadDashboard() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      _summary = await _repository.getDashboardSummary();
+      // Đọc đồng thời SQLite và SharedPreferences để tránh rebuild 2 lần
+      final results = await Future.wait([
+        _repository.getDashboardSummary(),
+        UserPrefsService.getDisplayName(),
+      ]);
+      _summary = results[0] as DashboardSummaryData?;
+      _displayName = results[1] as String;
     } catch (e) {
-      debugPrint('Lỗi đọc SQLite Dashboard: $e');
+      debugPrint('Lỗi đọc dữ liệu Dashboard: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
 
     await refreshQuotaStatus();
+  }
+
+  Future<void> updateDisplayName(String newName) async {
+    await UserPrefsService.saveDisplayName(newName);
+    _displayName = newName.trim();
+    notifyListeners();
   }
 
   Future<void> refreshQuotaStatus() async {

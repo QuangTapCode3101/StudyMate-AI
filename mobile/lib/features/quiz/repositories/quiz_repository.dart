@@ -93,7 +93,8 @@ class QuizRepository implements IQuizRepository {
 
       final response = QuizGenerateResponse.fromJson(jsonResponse);
 
-      // Lưu các câu hỏi vừa nhận được vào SQLite nếu chưa có
+      // Lưu các câu hỏi vừa nhận được vào SQLite và gắn lại ID thật
+      final savedQuestions = <QuestionModel>[];
       if (response.questions.isNotEmpty) {
         final db = await _dbHelper.database;
         for (final q in response.questions) {
@@ -101,14 +102,26 @@ class QuizRepository implements IQuizRepository {
             'questions',
             where: 'topic_id = ? AND question_text = ?',
             whereArgs: [q.topicId, q.questionText],
+            limit: 1,
           );
+
+          int realId;
           if (existing.isEmpty) {
-            await db.insert('questions', q.toMap());
+            realId = await db.insert('questions', q.toMap());
+          } else {
+            realId = (existing.first['id'] as num).toInt();
           }
+
+          final mapWithId = Map<String, dynamic>.from(q.toMap())..['id'] = realId;
+          savedQuestions.add(QuestionModel.fromMap(mapWithId));
         }
       }
 
-      return response;
+      return QuizGenerateResponse(
+        success: response.success,
+        quota: response.quota,
+        questions: savedQuestions,
+      );
     } catch (_) {
       // Fallback: Khi offline hoặc backend chưa chạy, đọc câu hỏi từ SQLite
       final fallbackQuestions = <QuestionModel>[];
