@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: controller,
               decoration: InputDecoration(
                 labelText: 'Backend Base URL',
-                hintText: 'http://10.0.2.2:3000',
+                hintText: 'Nhập URL',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -230,49 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-
-                const SizedBox(height: 20),
-
-                // 5. Footer: Lịch sử học tập nhanh
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.local_fire_department,
-                            color: Colors.deepOrange,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Chuỗi 5 ngày học liên tiếp',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Tổng thẻ: ${data.totalMasteredCards}',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ],
           ),

@@ -20,6 +20,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.15",
     "jest": "^30.5.2",
     "nodemon": "^3.1.14"
   }
