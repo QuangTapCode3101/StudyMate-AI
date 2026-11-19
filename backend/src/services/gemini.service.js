@@ -152,6 +152,7 @@ QUY TẮC BẮT BUỘC:
 1. Ưu tiên bám sát tài liệu học tập được cung cấp dưới đây. Nếu tài liệu không đề cập đủ, có thể bổ sung kiến thức chuẩn nhưng phải ghi chú rõ.
 2. Định dạng bằng Markdown sạch đẹp; mọi đoạn mã nguồn phải đặt trong block \`\`\`${(programmingLanguage || 'dart').toLowerCase()}\n...\n\`\`\`.
 3. Ở dòng CUỐI CÙNG của câu trả lời, bắt buộc xuất đúng một thẻ theo cú pháp:
+4. Trả lời súc tích, đi thẳng vào trọng tâm.
 [CITATIONS: Trang X, Trang Y] (liệt kê các nhãn pageLabel từ tài liệu mà bạn đã sử dụng; nếu không dùng nguồn nào thì ghi [CITATIONS: NONE]).`;
 
   const fullPrompt = `TÀI LIỆU THAM KHẢO:\n${contextText}\n\nLỊCH SỬ TRÒ CHUYỆN:\n${historyText}\n\nCÂU HỎI CỦA SINH VIÊN:\n${userPrompt || modeInstruction}`;

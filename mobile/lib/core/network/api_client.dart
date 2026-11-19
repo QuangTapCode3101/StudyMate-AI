@@ -27,7 +27,7 @@ class ApiClient {
 
   static const String _prefBaseUrlKey = 'server_base_url';
   static const String _prefDeviceIdKey = 'unique_device_id';
-  static const String defaultBaseUrl = 'http://10.0.2.2:3000';
+  static const String defaultBaseUrl = 'https://backend-divine-moonbeam-7921.fly.dev';
 
   Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
