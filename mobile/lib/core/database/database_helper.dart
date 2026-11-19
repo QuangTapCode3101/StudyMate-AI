@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/services.dart';
+
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -154,8 +155,8 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<void> seedDemoFlutterCourse([Database? db]) async {
-    final db = await database;
+  Future<void> seedDemoFlutterCourse([Database? passedDb]) async {
+    final db = passedDb ?? await database;
     final count = Sqflite.firstIntValue(
       await db.rawQuery('SELECT COUNT(*) FROM subjects'),
     );
@@ -165,12 +166,14 @@ class DatabaseHelper {
 
     // 1. Đọc file 300 câu hỏi JSON từ thư mục assets/seed/
     final String jsonString = await rootBundle.loadString('assets/seed/flutter_300_questions.json');
-    final List<dynamic> questionsData = jsonDecode(jsonString);
+    final Map<String, dynamic> rootData = jsonDecode(jsonString);
+    final List<dynamic> topicsData = rootData['topics'] ?? [];
+    final List<dynamic> questionsData = rootData['questions'] ?? [];
 
-    await db.transaction((txn) async {
-      // 2. Tạo môn Lập trình Flutter
+     await db.transaction((txn) async {
+      // 2. Tạo môn Lập trình Flutter (INT1449)
       final subjectId = await txn.insert('subjects', {
-        'name': 'Lập trình Flutter',
+        'name': 'Lập trình Flutter (INT1449)',
         'programming_language': 'Dart / Flutter',
         'created_at': now,
       });
@@ -192,28 +195,21 @@ class DatabaseHelper {
       });
 
       // 4. Khởi tạo 20 Chủ đề (Topic) để hứng 300 câu hỏi
-      for (int i = 1; i <= 20; i++) {
-        String topicName = 'Khối kiến thức $i';
-        int score = 0;
-        
-        // Giữ lại 3 chủ đề gốc để test UI
-        if (i == 1) { topicName = 'Ngôn ngữ Dart'; score = 85; }
-        if (i == 2) { topicName = 'Môi trường & Công cụ'; score = 60; }
-        if (i == 3) { topicName = 'Cách Flutter hoạt động'; score = 25; }
+       for (var t in topicsData) {
+        final int topicId = t['id'];
+        final String topicName = t['name'] ?? 'Khối kiến thức $topicId';
 
         await txn.insert('topics', {
-          'id': i, // Ép ID tĩnh từ 1 đến 20
+          'id': topicId, // Khớp trực tiếp ID từ 1 đến 20 trong JSON
           'subject_id': subjectId,
           'document_id': docId,
           'name': topicName,
-          'keywords_json': jsonEncode(['Khối $i']),
-          'chunk_indices_json': jsonEncode([1]),
-          'mastery_score': score,
-          'quiz_count': i <= 3 ? 2 : 0,
+          'keywords_json': jsonEncode([topicName, 'Dart', 'Flutter']),
+          'chunk_indices_json': jsonEncode([topicId]),
+          'quiz_count': topicId <= 3 ? 2 : 0,
           'updated_at': now,
         });
       }
-
       // 5. Sử dụng Batch để Insert 300 câu hỏi cực nhanh
       Batch batch = txn.batch();
       for (var q in questionsData) {
@@ -222,27 +218,13 @@ class DatabaseHelper {
           'question_type': q['questionType'] ?? 'CONCEPT',
           'question_text': q['questionText'] ?? '',
           'code_snippet': q['codeSnippet'],
-          'options_json': jsonEncode(q['options']),
+          'options_json': jsonEncode(q['options'] ?? []),
           'correct_index': q['correctIndex'] ?? 0,
-          'explanation': q['explanation'] ?? '',
+          'explanation': q['explanation'] ?? 'Kiến thức chuẩn',
         });
       }
       await batch.commit(noResult: true);
 
-      // 6. Tạo thẻ Flashcard SM-2 mồi
-      await txn.insert('flashcards', {
-        'subject_id': subjectId,
-        'topic_id': 2, // Map vào Topic "Môi trường & Công cụ"
-        'front_text': 'Để gọi hàm trong onPressed mà không làm rebuild Widget, ta dùng phương thức nào của Provider?',
-        'front_code': 'context.____<CartModel>().clear();',
-        'back_text': 'Đáp án: read\nPhương thức context.read<T>()...',
-        'repetition': 0,
-        'interval': 0,
-        'ease_factor': 2.5,
-        'next_review_at': now,
-      });
-    });
-    
-    print('--- ĐÃ NẠP 300 CÂU HỎI VÀ DATA MẪU THÀNH CÔNG ---');
+    });    
   }
 }

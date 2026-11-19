@@ -88,7 +88,7 @@ class QuizRepository implements IQuizRepository {
       final jsonResponse = await _apiClient.post(
         '/api/v1/quiz/generate',
         body: request.toJson(),
-        useMock: true, // Luôn bật mock mode an toàn theo Rubric
+        useMock: false,
       );
 
       final response = QuizGenerateResponse.fromJson(jsonResponse);

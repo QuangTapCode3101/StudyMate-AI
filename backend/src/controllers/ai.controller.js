@@ -217,12 +217,16 @@ exports.generateMiniQuiz = async (req, res, next) => {
       programmingLanguage = 'Dart',
       topicId,
       topicName,
+      userQuestion,
+      question,
       tutorAnswer,
       content,
     } = req.body;
 
     const referenceText = (tutorAnswer || content || '').toString().trim();
+    const studentQuestion = (userQuestion || question || '').toString().trim();
     const parsedTopicId = Number(topicId) || 1;
+    const safeTopicName = (topicName || 'Kiểm tra nhanh nội dung vừa học').toString().trim();
 
     if (isMockEnabled(req)) {
       return res.status(200).json({
@@ -280,7 +284,8 @@ exports.generateMiniQuiz = async (req, res, next) => {
     const result = await geminiService.generateMiniQuizFromTutor({
       programmingLanguage,
       topicId: parsedTopicId,
-      topicName,
+      topicName: safeTopicName,
+      userQuestion: studentQuestion,
       tutorAnswer: referenceText,
     });
 
