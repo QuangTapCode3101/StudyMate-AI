@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -64,7 +65,7 @@ class SeedDataService {
       await batch.commit(noResult: true);
       
     } catch (e) {
-      print(e);
+      debugPrint(e.toString());
     }
   }
 }
