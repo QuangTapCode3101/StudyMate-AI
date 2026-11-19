@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/active_context_provider.dart';
 import '../../../core/widgets/mastery_badge.dart';
@@ -111,13 +110,26 @@ class _HomeScreenState extends State<HomeScreen> {
     controller.dispose();
   }
 
+
+
+  Future<void> _showEditNameDialog(
+    BuildContext context,
+    HomeViewModel vm,
+  ) async {
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditNameDialog(initialName: vm.displayName),
+    );
+
+    if (newName == null) return;
+    await vm.updateDisplayName(newName);
+  }
+  
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
     final navProvider = context.read<ActiveStudyContextProvider>();
-    final data = vm.summary;
-
-    return Scaffold(
+    final data = vm.summary;    return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: RefreshIndicator(
@@ -125,38 +137,66 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
-              // 1. Header: Lời chào + RateLimitBadge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // 1. Header: Tầng 1 (Lời chào nhỏ + Badge), Tầng 2 (Tên full chiều ngang)
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Chào Quảng! 👋',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Sinh viên năm 3 • CNTT',
-                        style: TextStyle(
+                        vm.timeGreeting,
+                        style: const TextStyle(
                           fontSize: 14,
+                          fontWeight: FontWeight.w500,
                           color: Color(0xFF64748B),
                         ),
                       ),
+                      RateLimitBadge(
+                        remaining: vm.remainingQuota,
+                        maxQuota: vm.maxQuota,
+                        isOnline: vm.isBackendOnline,
+                        onTap: () => _showServerConfigModal(context, vm),
+                      ),
                     ],
                   ),
-                  RateLimitBadge(
-                    remaining: vm.remainingQuota,
-                    maxQuota: vm.maxQuota,
-                    isOnline: vm.isBackendOnline,
-                    onTap: () => _showServerConfigModal(context, vm),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () => _showEditNameDialog(context, vm),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            vm.displayName.isEmpty
+                                ? 'Hôm nay ôn tập gì nào? 👋'
+                                : '${vm.displayName} 👋',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
+                      ],
+                    ),
                   ),
+                  if (vm.displayName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Hôm nay bạn muốn ôn tập gì?',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 20),
@@ -489,6 +529,57 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EditNameDialog extends StatefulWidget {
+  final String initialName;
+  const _EditNameDialog({required this.initialName});
+
+  @override
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tên hiển thị'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 24,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          hintText: 'Nhập tên của bạn (để trống để ẩn)',
+        ),
+        onSubmitted: (value) => Navigator.pop(context, value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Lưu'),
+        ),
+      ],
     );
   }
 }

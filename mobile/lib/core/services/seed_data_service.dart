@@ -12,7 +12,7 @@ class SeedDataService {
       await db.execute('DELETE FROM topics');
       await db.execute('DELETE FROM subjects');
 
-      // 2. Nạp Subject và Topic mồi (BẮT BUỘC để không bị lỗi Foreign Key)
+      // 2. Nạp Subject và Topic (BẮT BUỘC để không bị lỗi Foreign Key)
       await db.insert('subjects', {
         'id': 1,
         'name': 'Lập trình Flutter (INT1449)',
@@ -36,7 +36,7 @@ class SeedDataService {
       final String jsonString = await rootBundle.loadString('assets/seed/flutter_300_questions.json');
       final List<dynamic> questionsData = jsonDecode(jsonString);
 
-      // 4. Batch Insert 300 câu hỏi siêu tốc
+      // 4. Batch Insert 300 câu hỏi 
       Batch batch = db.batch();
       for (var q in questionsData) {
         batch.insert('questions', {
