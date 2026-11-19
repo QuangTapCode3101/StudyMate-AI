@@ -139,7 +139,7 @@ exports.streamTutor = async ({
   const historyText =
     chatHistory.length > 0
       ? chatHistory
-          .slice(-6) // Lấy tối đa 6 tin nhắn gần nhất để tiết kiệm token
+          .slice(-6)
           .map((m) => `${m.role === 'USER' ? 'Sinh viên' : 'AI Tutor'}: ${m.content}`)
           .join('\n')
       : '';
@@ -275,7 +275,6 @@ QUY TẮC NGHIÊM NGẶT:
     });
 
     const parsed = JSON.parse(response.text);
-    // Hậu kiểm đảm bảo options luôn đủ 4 phần tử và correctIndex hợp lệ
     parsed.questions = (parsed.questions || []).map((q) => ({
       ...q,
       codeSnippet: q.codeSnippet || null,
@@ -290,29 +289,56 @@ exports.generateMiniQuizFromTutor = async ({
   programmingLanguage = 'Dart',
   topicId = 1,
   topicName = 'Kiểm tra nhanh nội dung vừa học',
+  userQuestion = '',
   tutorAnswer,
 }) => {
   const safeTopicId = Number(topicId) || 1;
-  const trimmedContext = String(tutorAnswer).slice(0, 3500);
+  const trimmedContext = String(tutorAnswer || '').slice(0, 3500);
+  const trimmedUserQuestion = String(userQuestion || '').slice(0, 500);
 
-  const result = await exports.generateQuiz({
-    programmingLanguage,
-    difficulty: 'EASY',
-    questionCount: 3, 
-    questionTypes: ['CONCEPT', 'PREDICT_OUTPUT'],
-    topics: [
-      {
-        topicId: safeTopicId,
-        topicName,
-        referenceContent: `Dựa trực tiếp vào nội dung giải thích của Gia sư AI dưới đây để đặt 3 câu hỏi kiểm tra mức độ hiểu bài của sinh viên:\n\n${trimmedContext}`,
+  const systemInstruction = `Bạn là giảng viên ra đề kiểm tra nhanh (Mini-Quiz) dựa trực tiếp trên cuộc hội thoại vừa diễn ra giữa sinh viên và Gia sư AI về ngôn ngữ ${programmingLanguage}.
+Hãy tạo chính xác 3 câu hỏi trắc nghiệm ngắn gọn, thực tế để kiểm tra xem sinh viên đã thực sự hiểu phần giải thích vừa rồi hay chưa.
+
+QUY TẮC NGHIÊM NGẶT:
+1. BÁM SÁT NGỮ CẢNH: Toàn bộ 3 câu hỏi phải xuất phát trực tiếp từ kiến thức, ví dụ, hoặc lỗi sai đã được đề cập trong phần trả lời của Gia sư AI. Tuyệt đối KHÔNG hỏi lan man sang các chủ đề ngoài nội dung vừa chat.
+2. Mỗi câu hỏi phải gán "topicId": ${safeTopicId}.
+3. Dạng câu hỏi: Ưu tiên "CONCEPT" (kiểm tra hiểu bản chất/khái niệm vừa giải thích). Chỉ dùng "PREDICT_OUTPUT" hoặc "SPOT_BUG" nếu trong phần giải thích của Gia sư AI có chứa đoạn code hoặc ví dụ lập trình cụ thể.
+4. Với dạng "SPOT_BUG" và "PREDICT_OUTPUT":
+   - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
+   - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
+5. "options" phải có ĐÚNG 4 phần tử phân biệt rõ ràng; các phương án nhiễu phải hợp lý dựa trên những nhầm lẫn phổ biến liên quan đến nội dung vừa học.
+6. "correctIndex" nằm trong khoảng 0..3.
+7. "explanation" giải thích ngắn gọn (1-2 câu), nhắc lại đúng trọng tâm kiến thức trong câu trả lời của Gia sư AI.`;
+
+  const chatContextPrompt = [
+    `Chủ đề: "${topicName}" (topicId: ${safeTopicId})`,
+    trimmedUserQuestion ? `Câu hỏi của sinh viên:\n"${trimmedUserQuestion}"` : null,
+    `Nội dung giải thích của Gia sư AI:\n"""\n${trimmedContext}\n"""`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  return executeWithKeyFallback(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: chatContextPrompt,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: quizResponseSchema,
+        temperature: 0.25, // Giữ temperature thấp để AI bám chặt vào nội dung vừa chat, tránh bịa thêm kiến thức ngoài
       },
-    ],
+    });
+
+    const parsed = JSON.parse(response.text);
+    const questions = (parsed.questions || []).slice(0, 3).map((q) => ({
+      ...q,
+      topicId: safeTopicId,
+      codeSnippet: q.codeSnippet || null,
+      options: (q.options || []).slice(0, 4),
+      correctIndex: Math.min(3, Math.max(0, Number(q.correctIndex) || 0)),
+    }));
+
+    return { questions };
   });
-
-  const questions = (result.questions || []).slice(0, 3).map((q) => ({
-    ...q,
-    topicId: safeTopicId,
-  }));
-
-  return { questions };
 };
