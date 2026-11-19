@@ -915,7 +915,7 @@ class TutorViewModel extends ChangeNotifier {
     final rawQuestions = data is Map ? data['questions'] : null;
     final questions = rawQuestions is List
         ? rawQuestions
-            .where((e) => e is Map)
+            .whereType()
             .map((e) => MiniQuizQuestion.fromJson(Map<String, dynamic>.from(e as Map)))
             .where((q) => q.isValid)
             .take(3)
