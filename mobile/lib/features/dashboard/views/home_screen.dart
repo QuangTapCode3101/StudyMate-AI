@@ -68,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: controller,
               decoration: InputDecoration(
                 labelText: 'Backend Base URL',
-                hintText: 'http://10.0.2.2:3000',
+                hintText: 'https://backend-divine-moonbeam-7921.fly.dev/',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
