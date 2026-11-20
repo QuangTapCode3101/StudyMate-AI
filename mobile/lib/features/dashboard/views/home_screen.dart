@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/providers/active_context_provider.dart';
 import '../../../core/widgets/mastery_badge.dart';
 import '../../../core/widgets/rate_limit_badge.dart';
