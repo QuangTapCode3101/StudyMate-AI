@@ -25,93 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showServerConfigModal(BuildContext context, HomeViewModel vm) async {
-    final currentUrl = await ApiClient.instance.getBaseUrl();
-    final controller = TextEditingController(text: currentUrl);
-
-    if (!context.mounted) return;
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Cấu hình Backend & Rate Limit (Demo)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              vm.isBackendOnline ? '🟢 Đã kết nối Backend Node.js thành công' : '🔴 Chưa kết nối được Backend (Đang chạy chế độ Offline SQLite)',
-              style: TextStyle(
-                fontSize: 13,
-                color: vm.isBackendOnline
-                    ? const Color(0xFF16A34A)
-                    : const Color(0xFFEF4444),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: 'Backend Base URL',
-                hintText: 'Nhập URL',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await vm.resetBackendQuota();
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('Reset 20/20 lượt AI'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      await ApiClient.instance.setBaseUrl(controller.text);
-                      await vm.refreshQuotaStatus();
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                    ),
-                    child: const Text('Lưu & Kiểm tra'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-  }
-
-
-
   Future<void> _showEditNameDialog(
     BuildContext context,
     HomeViewModel vm,
@@ -156,7 +69,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         remaining: vm.remainingQuota,
                         maxQuota: vm.maxQuota,
                         isOnline: vm.isBackendOnline,
-                        onTap: () => _showServerConfigModal(context, vm),
                       ),
                     ],
                   ),
