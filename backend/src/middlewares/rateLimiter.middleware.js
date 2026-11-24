@@ -1,103 +1,166 @@
-const MAX_PER_MINUTE = parseInt(process.env.MAX_REQUESTS_PER_MINUTE || '5', 10);
-const MAX_PER_DAY = parseInt(process.env.MAX_REQUESTS_PER_DAY || '20', 10);
+const db = require('../config/db');
 
-// Lưu trạng thái theo Device ID trong RAM
-const deviceQuotaMap = new Map();
+const PLAN_LIMITS = {
+  FREE: {
+    maxDaily: parseInt(process.env.FREE_MAX_PER_DAY || '20', 10),
+    maxPerMinute: parseInt(process.env.FREE_MAX_PER_MINUTE || '5', 10),
+  },
+  PREMIUM: {
+    maxDaily: parseInt(process.env.PREMIUM_MAX_PER_DAY || '100', 10),
+    maxPerMinute: parseInt(process.env.PREMIUM_MAX_PER_MINUTE || '15', 10),
+  },
+};
 
-function getOrInitQuota(deviceId) {
+// Cửa sổ chống spam theo phút lưu trong RAM theo userId
+const userMinuteMap = new Map();
+
+function getLimitsByPlan(plan) {
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.FREE;
+}
+
+function getOrInitMinuteWindow(userId) {
   const now = Date.now();
-  const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  let record = userMinuteMap.get(userId);
 
-  let record = deviceQuotaMap.get(deviceId);
-  if (!record || record.dateStr !== todayStr) {
+  if (!record || now - record.minuteWindowStart >= 60 * 1000) {
     record = {
-      dateStr: todayStr,
-      dailyUsed: 0,
       minuteWindowStart: now,
       minuteUsed: 0,
     };
-    deviceQuotaMap.set(deviceId, record);
-  }
-
-  // Reset cửa sổ 1 phút nếu đã qua 60 giây
-  if (now - record.minuteWindowStart >= 60 * 1000) {
-    record.minuteWindowStart = now;
-    record.minuteUsed = 0;
+    userMinuteMap.set(userId, record);
   }
 
   return record;
 }
 
-// Middleware chỉ đọc trạng thái Quota (Không trừ lượt - Dùng cho màn hình SCR-01 Home)
-const getQuotaStatus = (req, res) => {
-  const deviceId = req.headers['x-device-id'] || req.ip || 'default_device';
-  const record = getOrInitQuota(deviceId);
+async function getDailyUsageFromDb(userId) {
+  const { rows } = await db.query(
+    `SELECT request_count FROM user_quotas
+     WHERE user_id = $1 AND usage_date = CURRENT_DATE`,
+    [userId]
+  );
+  return rows.length > 0 ? rows[0].request_count : 0;
+}
 
-  return res.status(200).json({
-    success: true,
-    quota: {
-      usedDaily: record.dailyUsed,
-      remainingDaily: Math.max(0, MAX_PER_DAY - record.dailyUsed),
-      maxDaily: MAX_PER_DAY,
-      remainingMinute: Math.max(0, MAX_PER_MINUTE - record.minuteUsed),
-    },
-  });
-};
+// 1. Endpoint GET /api/v1/quota/status (Yêu cầu authMiddleware chạy trước)
+const getQuotaStatus = async (req, res) => {
+  try {
+    const { id: userId, plan } = req.user;
+    const limits = getLimitsByPlan(plan);
+    const usedDaily = await getDailyUsageFromDb(userId);
+    const minuteRecord = getOrInitMinuteWindow(userId);
 
-// Middleware kiểm tra và trừ 1 lượt mỗi khi gọi các API AI
-const consumeAiQuota = (req, res, next) => {
-  const deviceId = req.headers['x-device-id'] || req.ip || 'default_device';
-  const record = getOrInitQuota(deviceId);
-  const now = Date.now();
-
-  // 1. Kiểm tra giới hạn theo ngày (VD: 20 lượt/ngày)
-  if (record.dailyUsed >= MAX_PER_DAY) {
-    return res.status(429).json({
-      success: false,
-      error: {
-        code: 'DAILY_QUOTA_EXCEEDED',
-        message: `Bạn đã sử dụng hết ${MAX_PER_DAY}/${MAX_PER_DAY} lượt hỏi AI trong ngày hôm nay.`,
-        retryAfterSeconds: 3600,
+    return res.status(200).json({
+      success: true,
+      quota: {
+        plan,
+        usedDaily,
+        remainingDaily: Math.max(0, limits.maxDaily - usedDaily),
+        maxDaily: limits.maxDaily,
+        remainingMinute: Math.max(0, limits.maxPerMinute - minuteRecord.minuteUsed),
       },
     });
-  }
-
-  // 2. Kiểm tra giới hạn chống spam theo phút (VD: 5 lượt/phút)
-  if (record.minuteUsed >= MAX_PER_MINUTE) {
-    const retryAfter = Math.ceil((60 * 1000 - (now - record.minuteWindowStart)) / 1000);
-    return res.status(429).json({
+  } catch (err) {
+    console.error('Lỗi getQuotaStatus:', err);
+    return res.status(500).json({
       success: false,
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: `Bạn thao tác quá nhanh (Tối đa ${MAX_PER_MINUTE} lượt/phút). Vui lòng đợi ${retryAfter} giây.`,
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Không thể lấy thông tin hạn mức sử dụng.',
+    });
+  }
+};
+
+// 2. Middleware kiểm tra hạn mức trước khi gọi Gemini (Yêu cầu authMiddleware chạy trước)
+const consumeAiQuota = async (req, res, next) => {
+  try {
+    const { id: userId, plan } = req.user;
+    const limits = getLimitsByPlan(plan);
+    const now = Date.now();
+
+    // Kiểm tra giới hạn theo ngày từ PostgreSQL
+    const usedDaily = await getDailyUsageFromDb(userId);
+    if (usedDaily >= limits.maxDaily) {
+      return res.status(429).json({
+        error: 'DAILY_QUOTA_EXCEEDED',
+        message: 'Bạn đã hết lượt sử dụng AI hôm nay.',
+      });
+    }
+
+    // Kiểm tra giới hạn chống spam theo phút
+    const minuteRecord = getOrInitMinuteWindow(userId);
+    if (minuteRecord.minuteUsed >= limits.maxPerMinute) {
+      const retryAfter = Math.ceil(
+        (60 * 1000 - (now - minuteRecord.minuteWindowStart)) / 1000
+      );
+      return res.status(429).json({
+        error: 'RATE_LIMIT_EXCEEDED',
+        message: `Bạn thao tác quá nhanh (Tối đa ${limits.maxPerMinute} lượt/phút). Vui lòng đợi ${retryAfter} giây.`,
         retryAfterSeconds: retryAfter,
-      },
+      });
+    }
+
+    // Tăng bộ đếm phút để chặn spam ngay lập tức
+    // Riêng bộ đếm ngày trong Postgres CHỈ cộng sau khi Gemini trả về thành công
+    minuteRecord.minuteUsed += 1;
+
+    req.quotaInfo = {
+      usedDaily,
+      remainingDaily: Math.max(0, limits.maxDaily - usedDaily),
+      maxDaily: limits.maxDaily,
+    };
+
+    next();
+  } catch (err) {
+    console.error('Lỗi consumeAiQuota:', err);
+    return res.status(500).json({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Lỗi hệ thống khi kiểm tra hạn mức AI.',
     });
   }
-
-  // Trừ 1 lượt và gắn thông tin quota vào req để Controller trả về cho Flutter
-  record.dailyUsed += 1;
-  record.minuteUsed += 1;
-
-  req.quotaInfo = {
-    remainingDaily: Math.max(0, MAX_PER_DAY - record.dailyUsed),
-    maxDaily: MAX_PER_DAY,
-  };
-
-  next();
 };
 
-// Hàm hỗ trợ Reset Quota nhanh khi nhóm đang đứng bảo vệ đồ án
-const resetDeviceQuota = (req, res) => {
-  deviceQuotaMap.clear();
-  return res.status(200).json({
-    success: true,
-    message: 'Đã reset toàn bộ hạn mức gọi AI về ban đầu (20/20 lượt).',
-  });
+// 3. Hàm cộng 1 lượt vào PostgreSQL (Chỉ gọi trong Controller khi Gemini thành công)
+const incrementUserQuota = async (userId) => {
+  const { rows } = await db.query(
+    `INSERT INTO user_quotas (user_id, usage_date, request_count)
+     VALUES ($1, CURRENT_DATE, 1)
+     ON CONFLICT (user_id, usage_date)
+     DO UPDATE SET request_count = user_quotas.request_count + 1
+     RETURNING request_count`,
+    [userId]
+  );
+  return rows[0].request_count;
+};
+
+// 4. Hàm hỗ trợ Reset Quota nhanh trong DB khi demo/bảo vệ đồ án
+const resetDeviceQuota = async (req, res) => {
+  try {
+    userMinuteMap.clear();
+    if (req.user?.id) {
+      await db.query(
+        'DELETE FROM user_quotas WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+        [req.user.id]
+      );
+    } else {
+      await db.query('DELETE FROM user_quotas WHERE usage_date = CURRENT_DATE');
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đã reset hạn mức gọi AI hôm nay về ban đầu.',
+    });
+  } catch (err) {
+    console.error('Lỗi resetQuota:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Không thể reset hạn mức.',
+    });
+  }
 };
 
 module.exports = {
   getQuotaStatus,
   consumeAiQuota,
+  incrementUserQuota,
   resetDeviceQuota,
 };

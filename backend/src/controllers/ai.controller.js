@@ -1,11 +1,21 @@
 const geminiService = require('../services/gemini.service');
+const { incrementUserQuota } = require('../middlewares/rateLimiter.middleware');
 
 const isMockEnabled = (req) =>
   process.env.USE_MOCK_AI === 'true' || req.headers['x-mock-mode'] === 'true';
 
-/**
- * 1. POST /api/v1/documents/extract-topics (M2 - SCR-04)
- */
+//Helper: Cộng 1 lượt vào PostgreSQL khi Gemini xử lý thành công và trả về object quota mới nhất
+async function recordSuccessfulAiUsage(req) {
+  const newUsedDaily = await incrementUserQuota(req.user.id);
+  const maxDaily = req.quotaInfo?.maxDaily || 20;
+  return {
+    usedDaily: newUsedDaily,
+    remainingDaily: Math.max(0, maxDaily - newUsedDaily),
+    maxDaily,
+  };
+}
+
+//1. POST /api/v1/documents/extract-topics (M2 - SCR-04)
 exports.extractTopics = async (req, res, next) => {
   try {
     const { subjectName, programmingLanguage, documentTitle, chunks } = req.body;
@@ -50,9 +60,12 @@ exports.extractTopics = async (req, res, next) => {
       chunks,
     });
 
+    // Chỉ trừ lượt sau khi Gemini xử lý thành công
+    const updatedQuota = await recordSuccessfulAiUsage(req);
+
     return res.status(200).json({
       success: true,
-      quota: req.quotaInfo,
+      quota: updatedQuota,
       data: result,
     });
   } catch (err) {
@@ -60,9 +73,7 @@ exports.extractTopics = async (req, res, next) => {
   }
 };
 
-/**
- * 2. POST /api/v1/tutor/stream (M3 - SCR-05)
- */
+//2. POST /api/v1/tutor/stream (M3 - SCR-05)
 exports.streamTutorResponse = async (req, res, next) => {
   // Thiết lập Header SSE
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -118,12 +129,15 @@ exports.streamTutorResponse = async (req, res, next) => {
       },
     });
 
+    // Chỉ trừ lượt sau khi luồng Gemini stream hoàn tất không lỗi
+    const updatedQuota = await recordSuccessfulAiUsage(req);
+
     if (!res.writableEnded) {
       res.write(
         `data: ${JSON.stringify({
           type: 'done',
           citations,
-          quota: req.quotaInfo,
+          quota: updatedQuota,
         })}\n\n`
       );
       res.end();
@@ -137,9 +151,7 @@ exports.streamTutorResponse = async (req, res, next) => {
   }
 };
 
-/**
- * 3. POST /api/v1/quiz/generate (M4 - SCR-06 & SCR-07)
- */
+//3. POST /api/v1/quiz/generate (M4 - SCR-06 & SCR-07)
 exports.generateTechnicalQuiz = async (req, res, next) => {
   try {
     const { programmingLanguage, difficulty, questionCount, questionTypes, topics } = req.body;
@@ -198,9 +210,12 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
       topics,
     });
 
+    // Chỉ trừ lượt sau khi Gemini sinh đề thành công
+    const updatedQuota = await recordSuccessfulAiUsage(req);
+
     return res.status(200).json({
       success: true,
-      quota: req.quotaInfo,
+      quota: updatedQuota,
       data: result,
     });
   } catch (err) {
@@ -208,9 +223,7 @@ exports.generateTechnicalQuiz = async (req, res, next) => {
   }
 };
 
-/**
- * 4. POST /api/v1/quiz/generate-mini (M3 - MDL-02: Đủ 3 câu trắc nghiệm nhanh)
- */
+//4. POST /api/v1/quiz/generate-mini (M3 - MDL-02: Đủ 3 câu trắc nghiệm nhanh)
 exports.generateMiniQuiz = async (req, res, next) => {
   try {
     const {
@@ -289,9 +302,12 @@ exports.generateMiniQuiz = async (req, res, next) => {
       tutorAnswer: referenceText,
     });
 
+    // Chỉ trừ lượt sau khi Gemini sinh Mini-Quiz thành công
+    const updatedQuota = await recordSuccessfulAiUsage(req);
+
     return res.status(200).json({
       success: true,
-      quota: req.quotaInfo,
+      quota: updatedQuota,
       data: result,
     });
   } catch (err) {
