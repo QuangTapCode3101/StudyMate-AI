@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -40,8 +39,8 @@ class AuthService {
     required this.baseUrl,
     FlutterSecureStorage? storage,
     http.Client? client,
-  })  : _storage = storage ?? const FlutterSecureStorage(),
-        _client = client ?? http.Client();
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       _client = client ?? http.Client();
 
   Future<String?> getToken() => _storage.read(key: _tokenKey);
 
@@ -51,9 +50,7 @@ class AuthService {
     if (raw == null || raw.isEmpty) return null;
 
     try {
-      return AuthUser.fromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
+      return AuthUser.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       await _storage.delete(key: _userKey);
       return null;
@@ -66,10 +63,7 @@ class AuthService {
   }) async {
     try {
       await _storage.write(key: _tokenKey, value: token);
-      await _storage.write(
-        key: _userKey,
-        value: jsonEncode(user.toJson()),
-      );
+      await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
     } catch (_) {
       await clearSession();
       rethrow;
@@ -77,10 +71,7 @@ class AuthService {
   }
 
   Future<void> saveCachedUser(AuthUser user) async {
-    await _storage.write(
-      key: _userKey,
-      value: jsonEncode(user.toJson()),
-    );
+    await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
   }
 
   Future<void> clearSession() async {
@@ -104,15 +95,10 @@ class AuthService {
 
     final result = AuthResult(
       token: data['token'] as String,
-      user: AuthUser.fromJson(
-        data['user'] as Map<String, dynamic>,
-      ),
+      user: AuthUser.fromJson(data['user'] as Map<String, dynamic>),
     );
 
-    await saveSession(
-      token: result.token,
-      user: result.user,
-    );
+    await saveSession(token: result.token, user: result.user);
 
     return result;
   }
@@ -123,23 +109,15 @@ class AuthService {
   }) async {
     final data = await _post(
       '/api/v1/auth/login',
-      body: {
-        'email': email.trim(),
-        'password': password,
-      },
+      body: {'email': email.trim(), 'password': password},
     );
 
     final result = AuthResult(
       token: data['token'] as String,
-      user: AuthUser.fromJson(
-        data['user'] as Map<String, dynamic>,
-      ),
+      user: AuthUser.fromJson(data['user'] as Map<String, dynamic>),
     );
 
-    await saveSession(
-      token: result.token,
-      user: result.user,
-    );
+    await saveSession(token: result.token, user: result.user);
 
     return result;
   }
@@ -148,10 +126,7 @@ class AuthService {
     final token = await getToken();
 
     if (token == null || token.isEmpty) {
-      throw AuthException(
-        'Chưa đăng nhập.',
-        statusCode: 401,
-      );
+      throw AuthException('Chưa đăng nhập.', statusCode: 401);
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/auth/me');
@@ -169,23 +144,15 @@ class AuthService {
 
       final data = _handleResponse(response);
 
-      final user = AuthUser.fromJson(
-        data['user'] as Map<String, dynamic>,
-      );
+      final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
 
       await saveCachedUser(user);
 
       return user;
     } on SocketException {
-      throw AuthException(
-        'Không có kết nối mạng.',
-        errorCode: 'NETWORK_ERROR',
-      );
+      throw AuthException('Không có kết nối mạng.', errorCode: 'NETWORK_ERROR');
     } on TimeoutException {
-      throw AuthException(
-        'Kết nối máy chủ quá hạn.',
-        errorCode: 'TIMEOUT',
-      );
+      throw AuthException('Kết nối máy chủ quá hạn.', errorCode: 'TIMEOUT');
     } on HttpException {
       throw AuthException(
         'Không thể kết nối đến máy chủ.',
@@ -194,35 +161,25 @@ class AuthService {
     }
   }
 
-  Future<({String message, AuthUser user})> redeemCode(
-    String code,
-  ) async {
+  Future<({String message, AuthUser user})> redeemCode(String code) async {
     final token = await getToken();
 
     if (token == null || token.isEmpty) {
-      throw AuthException(
-        'Phiên đăng nhập hết hạn.',
-        statusCode: 401,
-      );
+      throw AuthException('Phiên đăng nhập hết hạn.', statusCode: 401);
     }
 
     final data = await _post(
       '/api/v1/auth/redeem-code',
-      body: {
-        'code': code.trim().toUpperCase(),
-      },
+      body: {'code': code.trim().toUpperCase()},
       token: token,
     );
 
-    final user = AuthUser.fromJson(
-      data['user'] as Map<String, dynamic>,
-    );
+    final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
 
     await saveCachedUser(user);
 
     return (
-      message: data['message'] as String? ??
-          'Kích hoạt Premium thành công!',
+      message: data['message'] as String? ?? 'Kích hoạt Premium thành công!',
       user: user,
     );
   }
@@ -241,11 +198,7 @@ class AuthService {
 
     try {
       final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(body),
-          )
+          .post(uri, headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 12));
 
       return _handleResponse(response);
@@ -267,9 +220,7 @@ class AuthService {
     }
   }
 
-  Map<String, dynamic> _handleResponse(
-    http.Response response,
-  ) {
+  Map<String, dynamic> _handleResponse(http.Response response) {
     Map<String, dynamic> decoded = {};
 
     if (response.body.isNotEmpty) {
@@ -284,15 +235,23 @@ class AuthService {
       }
     }
 
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;
     }
 
-    final message = decoded['message'] as String? ??
-        'Có lỗi xảy ra (Mã lỗi: ${response.statusCode}).';
+    final rawError = decoded['error'];
+    final String? errorCode = rawError is String
+        ? rawError
+        : (rawError is Map<String, dynamic>
+              ? rawError['code'] as String?
+              : null);
 
-    final errorCode = decoded['error'] as String?;
+    final String message =
+        decoded['message'] as String? ??
+        (rawError is Map<String, dynamic>
+            ? rawError['message'] as String?
+            : null) ??
+        'Có lỗi xảy ra (Mã lỗi: ${response.statusCode}).';
 
     throw AuthException(
       message,

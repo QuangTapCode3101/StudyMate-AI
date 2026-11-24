@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/providers/active_context_provider.dart';
+import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/mastery_badge.dart';
 import '../../../core/widgets/rate_limit_badge.dart';
+import '../../../core/widgets/section_header.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/widgets/account_sheet.dart';
+import '../../auth/widgets/redeem_code_sheet.dart';
 import '../models/dashboard_data_model.dart';
 import '../viewmodels/home_viewmodel.dart';
-import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/section_header.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,24 +28,91 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _openRedeemCode(BuildContext context) async {
+    final vm = context.read<HomeViewModel>();
+    final wasPremium = context.read<AuthProvider>().isPremium;
+
+    await RedeemCodeSheet.show(context);
+
+    if (!context.mounted) return;
+    if (!wasPremium && context.read<AuthProvider>().isPremium) {
+      await vm.loadDashboard();
+    }
+  }
+
+  Future<void> _showAccountSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AccountSheet(
+        onRedeemTap: () {
+          Navigator.of(context).pop();
+          _openRedeemCode(context);
+        },
+        onLogoutTap: () async {
+          Navigator.of(context).pop();
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Đăng xuất'),
+              content: const Text(
+                'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này không?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Huỷ'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                  ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Đăng xuất'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && context.mounted) {
+            await context.read<AuthProvider>().logout();
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _showEditNameDialog(
     BuildContext context,
     HomeViewModel vm,
+    String currentName,
   ) async {
     final newName = await showDialog<String>(
       context: context,
-      builder: (_) => _EditNameDialog(initialName: vm.displayName),
+      builder: (_) => _EditNameDialog(initialName: currentName),
     );
 
     if (newName == null) return;
     await vm.updateDisplayName(newName);
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
+    final auth = context.watch<AuthProvider>();
     final navProvider = context.read<ActiveStudyContextProvider>();
-    final data = vm.summary;    return Scaffold(
+    final data = vm.summary;
+
+    final effectiveName = vm.displayName.isNotEmpty
+        ? vm.displayName
+        : (auth.user?.displayName ?? '');
+    final avatarLetter = effectiveName.isNotEmpty
+        ? effectiveName.trim()[0].toUpperCase()
+        : '?';
+
+    return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: RefreshIndicator(
@@ -49,40 +120,88 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
-              // 1. Header: Tầng 1 (Lời chào nhỏ + Badge), Tầng 2 (Tên full chiều ngang)
+              // 1. Header: Tầng 1 (Lời chào + Quota + Avatar), Tầng 2 (Tên user)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        vm.timeGreeting,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
+                      Expanded(
+                        child: Text(
+                          vm.timeGreeting,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ),
-                      RateLimitBadge(
-                        remaining: vm.remainingQuota,
-                        maxQuota: vm.maxQuota,
-                        isOnline: vm.isBackendOnline,
+                      const SizedBox(width: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: auth.isPremium
+                                ? null
+                                : () => _openRedeemCode(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: RateLimitBadge(
+                              remaining: vm.remainingQuota,
+                              maxQuota: vm.maxQuota,
+                              isOnline: vm.isBackendOnline,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          InkWell(
+                            onTap: () => _showAccountSheet(context),
+                            customBorder: const CircleBorder(),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: auth.isPremium
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFDBEAFE),
+                                border: Border.all(
+                                  color: auth.isPremium
+                                      ? const Color(0xFFF59E0B)
+                                      : const Color(0xFF2563EB),
+                                  width: 1.5,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                avatarLetter,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: auth.isPremium
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFF1D4ED8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   InkWell(
-                    onTap: () => _showEditNameDialog(context, vm),
+                    onTap: () => _showEditNameDialog(context, vm, effectiveName),
                     borderRadius: BorderRadius.circular(8),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
                           child: Text(
-                            vm.displayName.isEmpty
+                            effectiveName.isEmpty
                                 ? 'Hôm nay ôn tập gì nào? 👋'
-                                : '${vm.displayName} 👋',
+                                : '$effectiveName 👋',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -101,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  if (vm.displayName.isNotEmpty) ...[
+                  if (effectiveName.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     const Text(
                       'Hôm nay bạn muốn ôn tập gì?',
@@ -139,7 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildDueFlashcardBanner(
                   dueCount: data.dueFlashcardsCount,
                   onReviewTap: () {
-                    // Chuyển sang Tab 5 (Tiến độ / Ôn tập SM-2)
                     navProvider.setTabIndex(4);
                   },
                 ),
