@@ -1,23 +1,96 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:flutter/services.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
 
   DatabaseHelper._init();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('studymate_ai.db');
-    return _database!;
+  Database? _database;
+  int? _currentUserId;
+  Future<Database>? _openingFuture;
+
+  int? get currentUserId => _currentUserId;
+  bool get isOpen => _database != null && _database!.isOpen;
+
+  /// Thiết lập user đang đăng nhập. Nếu đổi sang user khác, đóng DB cũ trước.
+  Future<void> setUserId(int userId) async {
+    if (userId <= 0) {
+      throw ArgumentError.value(userId, 'userId', 'userId phải lớn hơn 0');
+    }
+
+    if (_currentUserId == userId && _database != null && _database!.isOpen) {
+      return;
+    }
+
+    await closeDatabase();
+    _currentUserId = userId;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future<Database> get database async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      throw StateError(
+        'Chưa thiết lập userId cho DatabaseHelper. Hãy gọi setUserId(userId) trước khi truy cập database.',
+      );
+    }
+
+    final existing = _database;
+    if (existing != null && existing.isOpen) {
+      return existing;
+    }
+
+    if (_openingFuture != null) {
+      return await _openingFuture!;
+    }
+
+    final future = _initDB('studymate_user_$userId.db');
+    _openingFuture = future;
+
+    try {
+      final db = await future;
+      // Kiểm tra lại xem trong lúc chờ mở DB có bị đổi user/logout hay không
+      if (_currentUserId != userId) {
+        await db.close();
+        throw StateError(
+          'Phiên người dùng đã thay đổi trong lúc mở database.',
+        );
+      }
+      _database = db;
+      return db;
+    } finally {
+      if (identical(_openingFuture, future)) {
+        _openingFuture = null;
+      }
+    }
+  }
+
+  /// Đóng DB an toàn khi logout hoặc đổi tài khoản.
+  Future<void> closeDatabase({bool clearUserId = true}) async {
+    final pendingOpen = _openingFuture;
+    if (pendingOpen != null) {
+      try {
+        await pendingOpen;
+      } catch (_) {}
+    }
+
+    final db = _database;
+    _database = null;
+    if (clearUserId) {
+      _currentUserId = null;
+    }
+
+    if (db != null && db.isOpen) {
+      await db.close();
+    }
+  }
+
+  Future<Database> _initDB(String fileName) async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    final path = join(dbPath, fileName);
 
     return await openDatabase(
       path,
@@ -164,21 +237,19 @@ class DatabaseHelper {
 
     final now = DateTime.now().toIso8601String();
 
-    // 1. Đọc file 300 câu hỏi JSON từ thư mục assets/seed/
-    final String jsonString = await rootBundle.loadString('assets/seed/flutter_300_questions.json');
+    final String jsonString =
+        await rootBundle.loadString('assets/seed/flutter_300_questions.json');
     final Map<String, dynamic> rootData = jsonDecode(jsonString);
     final List<dynamic> topicsData = rootData['topics'] ?? [];
     final List<dynamic> questionsData = rootData['questions'] ?? [];
 
-     await db.transaction((txn) async {
-      // 2. Tạo môn Lập trình Flutter (INT1449)
+    await db.transaction((txn) async {
       final subjectId = await txn.insert('subjects', {
         'name': 'Lập trình Flutter (INT1449)',
         'programming_language': 'Dart / Flutter',
         'created_at': now,
       });
 
-      // 3. Tạo tài liệu mẫu
       final docId = await txn.insert('documents', {
         'subject_id': subjectId,
         'title': 'Tài liệu flutter.pdf',
@@ -194,8 +265,7 @@ class DatabaseHelper {
         'content': 'Đây là tài liệu flutter mẫu... (đoạn text trích dẫn)',
       });
 
-      // 4. Khởi tạo 20 Chủ đề (Topic) để hứng 300 câu hỏi
-       for (var t in topicsData) {
+      for (var t in topicsData) {
         final int topicId = t['id'];
         final String topicName = t['name'] ?? 'Khối kiến thức $topicId';
 
@@ -211,7 +281,7 @@ class DatabaseHelper {
           'updated_at': now,
         });
       }
-      // 5. Sử dụng Batch để Insert 300 câu hỏi cực nhanh
+
       Batch batch = txn.batch();
       for (var q in questionsData) {
         batch.insert('questions', {
@@ -225,7 +295,6 @@ class DatabaseHelper {
         });
       }
       await batch.commit(noResult: true);
-
-    });    
+    });
   }
 }

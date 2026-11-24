@@ -1,33 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:studymate_ai/features/progress/viewmodels/analytics_viewmodel.dart';
+
 import 'core/database/database_helper.dart';
+import 'core/network/api_client.dart';
 import 'core/providers/active_context_provider.dart';
 import 'core/widgets/main_navigation_shell.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
+import 'features/auth/services/auth_service.dart';
+import 'features/auth/widgets/auth_gate.dart';
 import 'features/dashboard/viewmodels/home_viewmodel.dart';
 import 'features/flashcards/viewmodels/flashcard_viewmodel.dart';
 import 'features/quiz/viewmodels/quiz_viewmodel.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Khởi tạo Database cục bộ
-  await DatabaseHelper.instance.seedDemoFlutterCourse();
+
+  final baseUrl = await ApiClient.instance.getBaseUrl();
+  final authService = AuthService(baseUrl: baseUrl);
+
+  final authProvider = AuthProvider(
+    authService: authService,
+    onBeforeLogout: () async {
+      await DatabaseHelper.instance.closeDatabase();
+    },
+  );
+
+  ApiClient.instance.configureAuth(
+    tokenProvider: () => authService.getToken(),
+    onUnauthorized: () async {
+      await authProvider.logout();
+    },
+  );
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ActiveStudyContextProvider()),
-        ChangeNotifierProvider(create: (_) => HomeViewModel()),
-        ChangeNotifierProvider(create: (_) => QuizViewModel()),
-        ChangeNotifierProvider(create: (_) => FlashcardViewModel()),
-        ChangeNotifierProvider(create: (_) => AnalyticsViewModel()),
-      ],
+    ChangeNotifierProvider<AuthProvider>.value(
+      value: authProvider,
       child: const StudyMateApp(),
     ),
   );
-  DatabaseHelper.instance.seedDemoFlutterCourse().catchError((e) {
-    debugPrint("Lỗi nạp seed data: $e");
-  });
 }
 
 class StudyMateApp extends StatelessWidget {
@@ -53,7 +65,32 @@ class StudyMateApp extends StatelessWidget {
           centerTitle: false,
         ),
       ),
-      home: const MainNavigationShell(),
+      home: AuthGate(
+        unauthenticatedChild: const LoginScreen(),
+        authenticatedChild: const _UserSessionScope(
+          child: MainNavigationShell(),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserSessionScope extends StatelessWidget {
+  final Widget child;
+
+  const _UserSessionScope({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ActiveStudyContextProvider()),
+        ChangeNotifierProvider(create: (_) => HomeViewModel()),
+        ChangeNotifierProvider(create: (_) => QuizViewModel()),
+        ChangeNotifierProvider(create: (_) => FlashcardViewModel()),
+        ChangeNotifierProvider(create: (_) => AnalyticsViewModel()),
+      ],
+      child: child,
     );
   }
 }
