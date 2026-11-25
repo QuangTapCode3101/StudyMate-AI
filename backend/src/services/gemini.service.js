@@ -1,35 +1,38 @@
 const { GoogleGenAI, Type } = require('@google/genai');
 
-// Đọc danh sách API Keys từ .env để xoay vòng (Key Rotation)
+// Đọc danh sách API Keys từ .env để xoay vòng
 const apiKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '')
   .split(',')
   .map((k) => k.trim())
   .filter(Boolean);
 
 let currentKeyIndex = 0;
-const MODEL_NAME = process.env.GEMINI_MODEL;
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
 function getNextClient() {
   if (apiKeys.length === 0) {
-    throw new Error('Chưa cấu hình GEMINI_API_KEYS trong file .env');
+    const err = new Error('Chưa cấu hình GEMINI_API_KEYS trên server.');
+    err.statusCode = 500;
+    throw err;
   }
   const key = apiKeys[currentKeyIndex];
   currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
   return new GoogleGenAI({ apiKey: key });
 }
 
-// Thử lại nếu lỗi 429 hoặc 503
+// Thử lại toàn bộ danh sách key nếu gặp lỗi 429 hoặc 503
 async function executeWithKeyFallback(fn) {
   let lastError;
   const attempts = Math.max(1, apiKeys.length);
+
   for (let i = 0; i < attempts; i++) {
     try {
       const ai = getNextClient();
       return await fn(ai);
     } catch (err) {
       lastError = err;
-      const status = err?.status || err?.code;
-      // Nếu lỗi quá tải/hết quota trên key hiện tại -> thử key kế tiếp
+      const status = Number(err?.status || err?.code || err?.statusCode);
+
       if (status === 429 || status === 503) {
         console.warn(`[Gemini Key Fallback] Key #${i + 1} gặp lỗi ${status}, đang chuyển key...`);
         continue;
@@ -37,6 +40,16 @@ async function executeWithKeyFallback(fn) {
       throw err;
     }
   }
+
+  // Nếu tất cả các key đều quá tải (503/429) trả HTTP 503
+  const finalStatus = Number(lastError?.status || lastError?.code);
+  if (finalStatus === 503 || finalStatus === 429) {
+    const unavailableError = new Error('Gemini service temporarily unavailable');
+    unavailableError.statusCode = 503;
+    unavailableError.code = 'GEMINI_UNAVAILABLE';
+    throw unavailableError;
+  }
+
   throw lastError;
 }
 
@@ -152,49 +165,50 @@ QUY TẮC BẮT BUỘC:
 1. Ưu tiên bám sát tài liệu học tập được cung cấp dưới đây. Nếu tài liệu không đề cập đủ, có thể bổ sung kiến thức chuẩn nhưng phải ghi chú rõ.
 2. Định dạng bằng Markdown sạch đẹp; mọi đoạn mã nguồn phải đặt trong block \`\`\`${(programmingLanguage || 'dart').toLowerCase()}\n...\n\`\`\`.
 3. Ở dòng CUỐI CÙNG của câu trả lời, bắt buộc xuất đúng một thẻ theo cú pháp:
-4. Trả lời súc tích, đi thẳng vào trọng tâm.
-[CITATIONS: Trang X, Trang Y] (liệt kê các nhãn pageLabel từ tài liệu mà bạn đã sử dụng; nếu không dùng nguồn nào thì ghi [CITATIONS: NONE]).`;
+[CITATIONS: Trang X, Trang Y] (liệt kê các nhãn pageLabel từ tài liệu mà bạn đã sử dụng; nếu không dùng nguồn nào thì ghi [CITATIONS: NONE]).
+4. Trả lời súc tích, đi thẳng vào trọng tâm.`;
 
   const fullPrompt = `TÀI LIỆU THAM KHẢO:\n${contextText}\n\nLỊCH SỬ TRÒ CHUYỆN:\n${historyText}\n\nCÂU HỎI CỦA SINH VIÊN:\n${userPrompt || modeInstruction}`;
 
-  const ai = getNextClient();
-  const stream = await ai.models.generateContentStream({
-    model: MODEL_NAME,
-    contents: fullPrompt,
-    config: {
-      systemInstruction,
-      temperature: 0.4,
-    },
-  });
+  return executeWithKeyFallback(async (ai) => {
+    const stream = await ai.models.generateContentStream({
+      model: MODEL_NAME,
+      contents: fullPrompt,
+      config: {
+        systemInstruction,
+        temperature: 0.4,
+      },
+    });
 
-  let fullText = '';
-  for await (const chunk of stream) {
-    const chunkText = chunk.text || '';
-    if (chunkText) {
-      fullText += chunkText;
-      const cleanChunk = chunkText.replace(/\[CITATIONS:.*?\]/g, '');
-      if (cleanChunk) {
-        onChunk(cleanChunk);
+    let fullText = '';
+    for await (const chunk of stream) {
+      const chunkText = chunk.text || '';
+      if (chunkText) {
+        fullText += chunkText;
+        const cleanChunk = chunkText.replace(/\[CITATIONS:.*?\]/g, '');
+        if (cleanChunk) {
+          onChunk(cleanChunk);
+        }
       }
     }
-  }
 
-  const validLabels = new Set(sourceChunks.map((c) => c.pageLabel));
-  const match = fullText.match(/\[CITATIONS:\s*(.*?)\]/i);
-  let citations = [];
+    const validLabels = new Set(sourceChunks.map((c) => c.pageLabel));
+    const match = fullText.match(/\[CITATIONS:\s*(.*?)\]/i);
+    let citations = [];
 
-  if (match && match[1] && match[1].trim().toUpperCase() !== 'NONE') {
-    citations = match[1]
-      .split(',')
-      .map((s) => s.trim())
-      .filter((label) => validLabels.size === 0 || validLabels.has(label));
-  }
+    if (match && match[1] && match[1].trim().toUpperCase() !== 'NONE') {
+      citations = match[1]
+        .split(',')
+        .map((s) => s.trim())
+        .filter((label) => validLabels.size === 0 || validLabels.has(label));
+    }
 
-  if (citations.length === 0 && sourceChunks.length > 0) {
-    citations = [...new Set(sourceChunks.slice(0, 2).map((c) => c.pageLabel))];
-  }
+    if (citations.length === 0 && sourceChunks.length > 0) {
+      citations = [...new Set(sourceChunks.slice(0, 2).map((c) => c.pageLabel))];
+    }
 
-  return { citations };
+    return { citations };
+  });
 };
 
 /**
@@ -258,9 +272,9 @@ QUY TẮC NGHIÊM NGẶT:
 1. Mỗi câu hỏi phải gán đúng "topicId" lấy từ danh sách chủ đề được cung cấp.
 2. "options" phải có ĐÚNG 4 phần tử phân biệt rõ ràng; "correctIndex" nằm trong khoảng 0..3.
 3. Với dạng "SPOT_BUG" và "PREDICT_OUTPUT":
-   - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
-   - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
-   - Lỗi trong SPOT_BUG phải là lỗi logic, runtime hoặc sai nguyên lý ngôn ngữ (không đố lỗi thiếu dấu chấm phẩy vặt vãnh).
+  - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
+  - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
+  - Lỗi trong SPOT_BUG phải là lỗi logic, runtime hoặc sai nguyên lý ngôn ngữ (không đố lỗi thiếu dấu chấm phẩy vặt vãnh).
 4. "explanation" giải thích rõ ràng, ngắn gọn, đi thẳng vào bản chất kỹ thuật.`;
 
   return executeWithKeyFallback(async (ai) => {
@@ -305,8 +319,8 @@ QUY TẮC NGHIÊM NGẶT:
 2. Mỗi câu hỏi phải gán "topicId": ${safeTopicId}.
 3. Dạng câu hỏi: Ưu tiên "CONCEPT" (kiểm tra hiểu bản chất/khái niệm vừa giải thích). Chỉ dùng "PREDICT_OUTPUT" hoặc "SPOT_BUG" nếu trong phần giải thích của Gia sư AI có chứa đoạn code hoặc ví dụ lập trình cụ thể.
 4. Với dạng "SPOT_BUG" và "PREDICT_OUTPUT":
-   - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
-   - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
+  - Bắt buộc có "codeSnippet" hợp lệ bằng ngôn ngữ ${programmingLanguage}, độ dài KHÔNG QUÁ 12 dòng.
+  - Đánh số dòng rõ ràng ở đầu mỗi dòng (VD: "1  void main() {\\n2    int x = 1;\\n3  }").
 5. "options" phải có ĐÚNG 4 phần tử phân biệt rõ ràng; các phương án nhiễu phải hợp lý dựa trên những nhầm lẫn phổ biến liên quan đến nội dung vừa học.
 6. "correctIndex" nằm trong khoảng 0..3.
 7. "explanation" giải thích ngắn gọn (1-2 câu), nhắc lại đúng trọng tâm kiến thức trong câu trả lời của Gia sư AI.`;
@@ -327,7 +341,7 @@ QUY TẮC NGHIÊM NGẶT:
         systemInstruction,
         responseMimeType: 'application/json',
         responseSchema: quizResponseSchema,
-        temperature: 0.25, // Giữ temperature thấp để AI bám chặt vào nội dung vừa chat, tránh bịa thêm kiến thức ngoài
+        temperature: 0.25,
       },
     });
 
