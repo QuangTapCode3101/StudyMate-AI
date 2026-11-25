@@ -18,7 +18,7 @@ class ActiveStudyContextProvider extends ChangeNotifier {
   void openAiTutorWithTopic({required int subjectId, required int topicId}) {
     _activeSubjectId = subjectId;
     _activeTopicId = topicId;
-    _currentTabIndex = 2; // Nhảy sang Tab AI Tutor
+    _currentTabIndex = 2;
     notifyListeners();
   }
 
@@ -26,7 +26,7 @@ class ActiveStudyContextProvider extends ChangeNotifier {
   void openQuizSetupWithTopic({required int subjectId, required int topicId}) {
     _activeSubjectId = subjectId;
     _activeTopicId = topicId;
-    _currentTabIndex = 3; // Nhảy sang Tab Luyện tập
+    _currentTabIndex = 3; 
     notifyListeners();
   }
 }
