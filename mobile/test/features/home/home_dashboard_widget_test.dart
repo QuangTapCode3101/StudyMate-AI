@@ -5,7 +5,8 @@ import 'package:studymate_ai/core/providers/active_context_provider.dart';
 import 'package:studymate_ai/features/dashboard/models/dashboard_data_model.dart';
 import 'package:studymate_ai/features/dashboard/views/home_screen.dart';
 import 'package:studymate_ai/features/dashboard/viewmodels/home_viewmodel.dart';
-
+import 'package:studymate_ai/features/auth/providers/auth_provider.dart';
+import 'package:studymate_ai/features/auth/services/auth_service.dart';
 class FakeHomeViewModel extends ChangeNotifier implements HomeViewModel {
   FakeHomeViewModel({
     this.fakeSummary,
@@ -83,6 +84,9 @@ Widget _buildTestApp(
       ChangeNotifierProvider<HomeViewModel>.value(value: vm),
       ChangeNotifierProvider<ActiveStudyContextProvider>.value(
         value: navProvider,
+      ),
+      ChangeNotifierProvider<AuthProvider>(
+        create: (_) => AuthProvider(authService: AuthService(baseUrl: 'http://localhost:3000')), 
       ),
     ],
     child: const MaterialApp(home: HomeScreen()),
