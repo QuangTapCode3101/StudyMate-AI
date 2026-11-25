@@ -20,9 +20,9 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
 
   AuthProvider({
-    required AuthService authService,
+    required this._authService,
     this.onBeforeLogout,
-  }) : _authService = authService;
+  });
 
   AuthStatus get status => _status;
   AuthUser? get user => _user;

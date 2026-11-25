@@ -20,7 +20,7 @@ Route<T> buildSmoothAuthRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 240),
-    pageBuilder: (_, __, ___) => page,
+    pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -154,9 +154,9 @@ class AuthScaffold extends StatelessWidget {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(28),
                                   child: Image.asset(
-                                    'assets/images/logo.jpg',
+                                    'assets/images/logo.png',
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorBuilder: (_, _, _) => Container(
                                       decoration: const BoxDecoration(
                                         gradient: AuthBrandColors.primaryButtonGradient,
                                       ),
@@ -242,7 +242,6 @@ class _SoftBlob extends StatelessWidget {
   }
 }
 
-/// Decoration chuẩn chỉ dùng placeholder (hintText), không label ngoài
 InputDecoration buildAuthInputDecoration({
   required String hintText,
   required IconData prefixIcon,
