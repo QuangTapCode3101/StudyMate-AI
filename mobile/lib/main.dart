@@ -34,6 +34,9 @@ Future<void> main() async {
     },
   );
 
+  // Gọi kiểm tra phiên đăng nhập 1 lần duy nhất tại đây (không cần await)
+  authProvider.checkAuthStatus();
+
   runApp(
     ChangeNotifierProvider<AuthProvider>.value(
       value: authProvider,
@@ -47,28 +50,31 @@ class StudyMateApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'StudyMate AI',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB),
-          primary: const Color(0xFF2563EB),
-          surface: Colors.white,
+    final userId = context.select<AuthProvider, int?>((auth) => auth.userId);
+
+    return _UserSessionScope(
+      key: ValueKey(userId),
+      child: MaterialApp(
+        title: 'StudyMate AI',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2563EB),
+            primary: const Color(0xFF2563EB),
+            surface: Colors.white,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFFF8FAFC),
+            foregroundColor: Color(0xFF0F172A),
+            elevation: 0,
+            centerTitle: false,
+          ),
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF8FAFC),
-          foregroundColor: Color(0xFF0F172A),
-          elevation: 0,
-          centerTitle: false,
-        ),
-      ),
-      home: AuthGate(
-        unauthenticatedChild: const LoginScreen(),
-        authenticatedChild: const _UserSessionScope(
-          child: MainNavigationShell(),
+        home: const AuthGate(
+          unauthenticatedChild: LoginScreen(),
+          authenticatedChild: MainNavigationShell(),
         ),
       ),
     );
@@ -78,7 +84,10 @@ class StudyMateApp extends StatelessWidget {
 class _UserSessionScope extends StatelessWidget {
   final Widget child;
 
-  const _UserSessionScope({required this.child});
+  const _UserSessionScope({
+    super.key,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {

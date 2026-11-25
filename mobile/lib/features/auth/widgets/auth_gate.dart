@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:studymate_ai/core/database/database_helper.dart';
-
 import '../providers/auth_provider.dart';
 
 class AuthGate extends StatefulWidget {
@@ -19,19 +18,8 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _hasTriggeredInitialCheck = false;
   int? _preparedUserId;
   Future<void>? _prepareDbFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _hasTriggeredInitialCheck) return;
-      _hasTriggeredInitialCheck = true;
-      context.read<AuthProvider>().checkAuthStatus();
-    });
-  }
 
   Future<void> _ensureDatabaseForUser(int userId) {
     if (_preparedUserId == userId &&
@@ -40,7 +28,7 @@ class _AuthGateState extends State<AuthGate> {
       return Future.value();
     }
 
-    if (_preparedUserId != userId) {
+    if (_preparedUserId != userId || _prepareDbFuture == null) {
       _preparedUserId = userId;
       _prepareDbFuture = DatabaseHelper.instance.setUserId(userId);
     }

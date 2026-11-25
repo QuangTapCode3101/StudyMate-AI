@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/active_context_provider.dart';
 import '../viewmodels/analytics_viewmodel.dart';
 import 'widgets/analytics_dashboard_tab.dart';
-import 'widgets/system_settings_modal.dart';
 
 import 'package:studymate_ai/features/flashcards/views/flashcard_decks_tab.dart';
 
@@ -49,14 +48,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
           'Tiến độ & Ghi nhớ',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Cấu hình Hệ thống (MDL-03)',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => SystemSettingsModal.show(context),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: Column(
         children: [

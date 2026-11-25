@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:studymate_ai/features/dashboard/viewmodels/home_viewmodel.dart';
 import 'package:studymate_ai/features/progress/viewmodels/analytics_viewmodel.dart';
-
+import '../../features/quiz/viewmodels/quiz_viewmodel.dart';
 import '../../features/library/screens/library_screen.dart';
 import '../../features/progress/views/progress_screen.dart';
 import '../../features/dashboard/views/home_screen.dart';

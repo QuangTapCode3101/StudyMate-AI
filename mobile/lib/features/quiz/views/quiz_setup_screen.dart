@@ -18,16 +18,53 @@ class QuizSetupScreen extends StatefulWidget {
 }
 
 class _QuizSetupScreenState extends State<QuizSetupScreen> {
+  late final ActiveStudyContextProvider _activeContext;
+  int _lastTabIndex = -1;
+  int? _lastSubjectId;
+  int? _lastTopicId;
+
   @override
   void initState() {
     super.initState();
+    _activeContext = context.read<ActiveStudyContextProvider>();
+    _activeContext.addListener(_onContextChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final activeContext = context.read<ActiveStudyContextProvider>();
-      context.read<QuizViewModel>().initSetup(
-        preferredSubjectId: activeContext.activeSubjectId,
-        preferredTopicId: activeContext.activeTopicId,
-      );
+      if (!mounted) return;
+      _reloadQuizSetup();
     });
+  }
+
+  void _onContextChanged() {
+    if (!mounted) return;
+    final isQuizTab = _activeContext.currentTabIndex == 3;
+    final tabJustEntered = isQuizTab && _lastTabIndex != 3;
+    final selectionChangedOnQuizTab = isQuizTab &&
+        (_lastSubjectId != _activeContext.activeSubjectId ||
+            _lastTopicId != _activeContext.activeTopicId);
+
+    _lastTabIndex = _activeContext.currentTabIndex;
+
+    if (tabJustEntered || selectionChangedOnQuizTab) {
+      _reloadQuizSetup();
+    }
+  }
+
+  void _reloadQuizSetup() {
+    _lastTabIndex = _activeContext.currentTabIndex;
+    _lastSubjectId = _activeContext.activeSubjectId;
+    _lastTopicId = _activeContext.activeTopicId;
+
+    context.read<QuizViewModel>().initSetup(
+      preferredSubjectId: _activeContext.activeSubjectId,
+      preferredTopicId: _activeContext.activeTopicId,
+    );
+  }
+
+  @override
+  void dispose() {
+    _activeContext.removeListener(_onContextChanged);
+    super.dispose();
   }
 
   @override
