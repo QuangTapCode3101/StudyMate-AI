@@ -341,16 +341,6 @@ class _QuizAttemptCard extends StatelessWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Xem chi tiết lần thi #${attempt.attemptId} (Nối vào SCR-08 của M4)',
-              ),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
         leading: CircleAvatar(
           radius: 22,
           backgroundColor: scoreColor.withValues(alpha: 0.12),
@@ -377,7 +367,6 @@ class _QuizAttemptCard extends StatelessWidget {
           'Đúng ${attempt.correctCount}/${attempt.totalQuestions} câu • ${attempt.durationSeconds}s',
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
       ),
     );
   }
